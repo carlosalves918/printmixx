@@ -316,6 +316,7 @@ section{padding:96px 0;}
 }
 .check-ic{width:18px; height:18px; flex-shrink:0;}
 .check-ic svg{width:100%; height:100%;}
+.feature-cta{margin-bottom:22px;}
 .feature-img{
   margin:auto -1px -1px;
   border-radius:0;
@@ -376,6 +377,15 @@ section{padding:96px 0;}
 .service-card ul{list-style:none; display:flex; flex-direction:column; gap:7px;}
 .service-card li{font-size:14.5px; color:var(--ink-dim); position:relative; padding-left:14px; font-weight:500;}
 .service-card li::before{content:"—"; position:absolute; left:0; color:var(--card-accent, var(--purple)); opacity:0.8;}
+.service-cta{
+  display:inline-flex; align-items:center; gap:6px;
+  margin-top:18px;
+  font-size:13.5px; font-weight:700;
+  color:var(--card-accent, var(--purple));
+  transition:gap .2s ease;
+}
+.service-cta .wa-icon{width:15px; height:15px;}
+.service-cta:hover{gap:9px;}
 
 /* ---------- WHY US ---------- */
 .why-section{

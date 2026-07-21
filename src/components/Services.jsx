@@ -1,10 +1,13 @@
 import { useReveal } from '../hooks/useReveal'
+import { getWhatsappUrl } from '../siteConfig'
+import WhatsappIcon from './icons/WhatsappIcon'
 
 const services = [
   {
     accent: 'var(--purple)',
     accentSoft: 'rgba(124,58,237,0.16)',
     title: 'Comunicação Visual',
+    waMessage: 'Olá! Quero orçamento de Comunicação Visual (banners, fachadas, adesivagem).',
     items: ['Banners e faixas', 'Fachadas e letreiros', 'Adesivagem de vitrines'],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -17,6 +20,7 @@ const services = [
     accent: 'var(--cyan)',
     accentSoft: 'rgba(23,184,214,0.16)',
     title: 'Serviços Gráficos',
+    waMessage: 'Olá! Quero orçamento de Serviços Gráficos (cartões, xerox, convites).',
     items: ['Cartões de visita', 'Xerox P&B e color', 'Convites e currículos', 'Plastificação'],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -29,6 +33,7 @@ const services = [
     accent: 'var(--magenta)',
     accentSoft: 'rgba(236,22,113,0.16)',
     title: 'Personalizados',
+    waMessage: 'Olá! Quero orçamento de camisas.',
     items: ['Canecas e camisas', 'Chaveiros e sacolas', 'Kit festas — pegue e monte'],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -42,6 +47,7 @@ const services = [
     accent: 'var(--orange-2)',
     accentSoft: 'rgba(255,176,32,0.16)',
     title: 'Brindes',
+    waMessage: 'Olá! Quero orçamento de Brindes corporativos.',
     items: ['Brindes corporativos', 'Lembrancinhas de evento', 'Kits personalizados'],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -53,6 +59,7 @@ const services = [
     accent: 'var(--yellow)',
     accentSoft: 'rgba(255,206,31,0.16)',
     title: 'Variedades',
+    waMessage: 'Olá! Quero orçamento de Variedades.',
     items: ['Materiais de escritório', 'Acessórios para celular', 'Laços decorativos', 'Informática'],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -65,6 +72,7 @@ const services = [
     accent: 'var(--purple)',
     accentSoft: 'rgba(124,58,237,0.16)',
     title: 'Adesivos',
+    waMessage: 'Olá! Quero orçamento de Adesivos.',
     items: ['Recorte eletrônico', 'Etiquetas e rótulos', 'Adesivos personalizados'],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -77,6 +85,7 @@ const services = [
     accent: 'var(--cyan)',
     accentSoft: 'rgba(23,184,214,0.16)',
     title: 'Sublimação',
+    waMessage: 'Olá! Quero orçamento de Sublimação (camisas, uniformes, canecas).',
     items: ['Camisas e uniformes', 'Canecas e squeezes', 'Estampas sob medida'],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -89,6 +98,7 @@ const services = [
     accent: 'var(--orange)',
     accentSoft: 'rgba(255,106,26,0.16)',
     title: 'E muito mais',
+    waMessage: 'Olá! Quero saber mais sobre os produtos e serviços da Print Mixx.',
     items: ['Sob consulta e orçamento', 'Fale com a gente no WhatsApp'],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -114,6 +124,16 @@ function ServiceCard({ service }) {
           <li key={item}>{item}</li>
         ))}
       </ul>
+      <a
+        className="service-cta"
+        style={{ color: service.accent }}
+        href={getWhatsappUrl(service.waMessage)}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <WhatsappIcon className="wa-icon" />
+        Pedir orçamento
+      </a>
     </div>
   )
 }

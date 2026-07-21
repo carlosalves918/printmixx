@@ -1,4 +1,6 @@
 import { useReveal } from '../hooks/useReveal'
+import { getWhatsappUrl } from '../siteConfig'
+import WhatsappIcon from './icons/WhatsappIcon'
 import imgGrafica from '../assets/prod-grafica.png'
 import imgVariedades from '../assets/prod-variedades.png'
 import imgPersonalizados from '../assets/prod-personalizados.png'
@@ -21,6 +23,7 @@ const categories = [
     items: ['Cartões de visita', 'Xerox P&B e color', 'Banners e faixas', 'Convites', 'Currículos', 'Plastificação'],
     img: imgGrafica,
     imgAlt: 'Cartões de visita e banner personalizado Print Mixx',
+    waMessage: 'Olá! Quero orçamento de Serviços Gráficos.',
   },
   {
     accent: 'var(--orange-2)',
@@ -32,6 +35,7 @@ const categories = [
     items: ['Materiais de escritório', 'Acessórios para celular', 'Laços decorativos', 'Informática'],
     img: imgVariedades,
     imgAlt: 'Materiais de escritório, laços e acessórios Print Mixx',
+    waMessage: 'Olá! Quero orçamento de Variedades.',
   },
   {
     accent: 'var(--cyan)',
@@ -43,6 +47,7 @@ const categories = [
     items: ['Canecas', 'Camisas', 'Chaveiros', 'Sacolas', 'Kit festas — pegue e monte'],
     img: imgPersonalizados,
     imgAlt: 'Canecas, camisas e kit de aniversário personalizados Print Mixx',
+    waMessage: 'Olá! Quero orçamento de Personalizados (canecas, camisas, chaveiros).',
   },
 ]
 
@@ -67,6 +72,16 @@ function CategoryCard({ cat }) {
           </li>
         ))}
       </ul>
+      <a
+        className="btn btn-ghost btn-sm feature-cta"
+        style={{ borderColor: cat.accent, alignSelf: 'flex-start' }}
+        href={getWhatsappUrl(cat.waMessage)}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <WhatsappIcon className="wa-icon" />
+        Orçamento de {cat.title}
+      </a>
       <div className="feature-img">
         <img src={cat.img} alt={cat.imgAlt} loading="lazy" />
       </div>
