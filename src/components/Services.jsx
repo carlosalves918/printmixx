@@ -1,6 +1,7 @@
 import { useReveal } from '../hooks/useReveal'
 import { getWhatsappUrl } from '../siteConfig'
 import WhatsappIcon from './icons/WhatsappIcon'
+import SectionDecor from './SectionDecor'
 
 const services = [
   {
@@ -141,7 +142,17 @@ function ServiceCard({ service }) {
 export default function Services() {
   const headRef = useReveal()
   return (
-    <section id="servicos">
+    <section id="servicos" className="services-section">
+      <SectionDecor
+        blobs={[
+          { color: 'rgba(255,206,31,0.22)', style: { width: 340, height: 340, top: -80, right: -120 } },
+          { color: 'rgba(236,22,113,0.2)', style: { width: 300, height: 300, bottom: -100, left: -110 } },
+        ]}
+        marks={[
+          { color: 'var(--purple)', style: { top: 60, left: '5%' } },
+          { color: 'var(--cyan)', style: { bottom: 40, right: '7%' } },
+        ]}
+      />
       <div className="wrap">
         <div ref={headRef} className="section-head reveal">
           <span className="eyebrow">Catálogo completo</span>

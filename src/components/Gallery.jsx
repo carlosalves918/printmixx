@@ -1,6 +1,7 @@
 import fachada from '../assets/fachada.jpg'
 import { useReveal } from '../hooks/useReveal'
 import { getMapsEmbedUrl, getMapsUrl } from '../siteConfig'
+import SectionDecor from './SectionDecor'
 
 export default function Gallery() {
   const headRef = useReveal()
@@ -8,7 +9,17 @@ export default function Gallery() {
   const shortRef = useReveal()
 
   return (
-    <section id="galeria">
+    <section id="galeria" className="gallery-section">
+      <SectionDecor
+        blobs={[
+          { color: 'rgba(23,184,214,0.22)', style: { width: 320, height: 320, top: -90, left: -110 } },
+          { color: 'rgba(255,106,26,0.2)', style: { width: 280, height: 280, bottom: -90, right: -90 } },
+        ]}
+        marks={[
+          { color: 'var(--purple)', style: { top: 30, right: '10%' } },
+          { color: 'var(--orange-2)', style: { bottom: 30, left: '8%' } },
+        ]}
+      />
       <div className="wrap">
         <div ref={headRef} className="section-head reveal">
           <span className="eyebrow">Onde estamos</span>

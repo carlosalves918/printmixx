@@ -1,6 +1,7 @@
 import { useReveal } from '../hooks/useReveal'
 import { getWhatsappUrl } from '../siteConfig'
 import WhatsappIcon from './icons/WhatsappIcon'
+import SectionDecor from './SectionDecor'
 import imgGrafica from '../assets/prod-grafica.png'
 import imgVariedades from '../assets/prod-variedades.png'
 import imgPersonalizados from '../assets/prod-personalizados.png'
@@ -93,6 +94,16 @@ export default function FeaturedCategories() {
   const headRef = useReveal()
   return (
     <section id="frentes" className="feature-section">
+      <SectionDecor
+        blobs={[
+          { color: 'rgba(124,58,237,0.3)', style: { width: 380, height: 380, top: -100, left: -140 } },
+          { color: 'rgba(23,184,214,0.24)', style: { width: 320, height: 320, bottom: -120, right: -100 } },
+        ]}
+        marks={[
+          { color: 'var(--orange-2)', style: { top: 40, right: '8%' } },
+          { color: 'var(--magenta)', style: { bottom: 24, left: '6%' } },
+        ]}
+      />
       <div className="wrap">
         <div ref={headRef} className="section-head reveal center">
           <span className="eyebrow center">As 3 frentes da Print Mixx</span>

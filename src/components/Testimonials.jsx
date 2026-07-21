@@ -2,6 +2,7 @@ import { useReveal } from '../hooks/useReveal'
 import imgGrafica from '../assets/prod-grafica.png'
 import imgPersonalizados from '../assets/prod-personalizados.png'
 import imgVariedades from '../assets/prod-variedades.png'
+import SectionDecor from './SectionDecor'
 
 const testimonials = [
   {
@@ -54,7 +55,17 @@ export default function Testimonials() {
   const headRef = useReveal()
 
   return (
-    <section id="depoimentos">
+    <section id="depoimentos" className="testi-section">
+      <SectionDecor
+        blobs={[
+          { color: 'rgba(255,206,31,0.2)', style: { width: 320, height: 320, top: -100, right: -110 } },
+          { color: 'rgba(124,58,237,0.22)', style: { width: 300, height: 300, bottom: -100, left: -100 } },
+        ]}
+        marks={[
+          { color: 'var(--cyan)', style: { top: 36, left: '6%' } },
+          { color: 'var(--magenta)', style: { bottom: 36, right: '6%' } },
+        ]}
+      />
       <div className="wrap">
         <div ref={headRef} className="section-head reveal center">
           <span className="eyebrow center">Quem confia</span>

@@ -5,7 +5,7 @@ import { getWhatsappUrl } from '../siteConfig'
 
 export default function Hero() {
   return (
-    <section className="hero">
+    <section className="hero" id="top">
       <div className="hero-grid"></div>
       <div className="hero-splash hero-splash-a"></div>
       <div className="hero-splash hero-splash-b"></div>

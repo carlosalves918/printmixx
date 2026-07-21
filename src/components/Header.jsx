@@ -6,7 +6,9 @@ export default function Header() {
   return (
     <header>
       <nav className="nav">
-        <img src={logo} alt="Print Mixx" className="nav-logo" />
+        <a href="#top" className="nav-logo-link" aria-label="Voltar para o início">
+          <img src={logo} alt="Print Mixx" className="nav-logo" />
+        </a>
         <div className="nav-links">
           <a href="#frentes">Especialidades</a>
           <a href="#servicos">Catálogo</a>

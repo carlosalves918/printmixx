@@ -1,6 +1,7 @@
 import { useReveal } from '../hooks/useReveal'
 import fachada from '../assets/fachada.jpg'
 import { getMapsUrl } from '../siteConfig'
+import SectionDecor from './SectionDecor'
 
 const reasons = [
   {
@@ -85,6 +86,16 @@ export default function WhyUs() {
 
   return (
     <section id="porque" className="why-section">
+      <SectionDecor
+        blobs={[
+          { color: 'rgba(255,176,32,0.2)', style: { width: 360, height: 360, top: -110, right: -130 } },
+          { color: 'rgba(124,58,237,0.2)', style: { width: 300, height: 300, bottom: -90, left: -90 } },
+        ]}
+        marks={[
+          { color: 'var(--magenta)', style: { top: '14%', right: '4%' } },
+          { color: 'var(--yellow)', style: { bottom: '10%', left: '3%' } },
+        ]}
+      />
       <div className="wrap why-layout">
         <div className="why-content">
           <div ref={headRef} className="section-head reveal">

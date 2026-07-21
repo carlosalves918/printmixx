@@ -29,7 +29,7 @@ body{
 }
 img{max-width:100%; display:block;}
 a{color:inherit; text-decoration:none;}
-.wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px;}
+.wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px; position:relative; z-index:1;}
 .eyebrow{
   font-family:'Space Mono', monospace;
   letter-spacing:0.14em;
@@ -63,6 +63,14 @@ h1,h2,h3{font-family:'Archivo Black', sans-serif; font-weight:400; line-height:1
 }
 .regmark svg{width:100%;height:100%;}
 
+.section-blob{
+  position:absolute;
+  border-radius:50%;
+  filter:blur(70px);
+  pointer-events:none;
+  z-index:0;
+}
+
 /* color bar divider - signature element referencing print proof color bars */
 .colorbar{
   height:5px;
@@ -85,6 +93,8 @@ header{
   max-width:var(--maxw); margin:0 auto;
 }
 .nav-logo{height:38px;}
+.nav-logo-link{display:inline-flex; transition:opacity .2s ease, transform .2s ease;}
+.nav-logo-link:hover{opacity:0.82; transform:translateY(-1px);}
 .nav-links{display:flex; align-items:center; gap:28px;}
 .nav-links a{font-size:14px; font-weight:600; color:var(--ink-dim); transition:color .2s;}
 .nav-links a:hover{color:var(--ink);}
@@ -253,6 +263,7 @@ section{padding:96px 0;}
 /* ---------- FEATURED CATEGORIES ---------- */
 .feature-section{
   position:relative;
+  overflow:hidden;
   padding-top:80px;
 }
 .feature-grid{
@@ -335,6 +346,7 @@ section{padding:96px 0;}
 }
 
 /* ---------- SERVICES ---------- */
+.services-section{position:relative; overflow:hidden;}
 .services-grid{
   display:grid;
   grid-template-columns:repeat(4, 1fr);
@@ -389,6 +401,7 @@ section{padding:96px 0;}
 
 /* ---------- WHY US ---------- */
 .why-section{
+  position:relative;
   background:var(--bg-soft);
   border-top:1px solid var(--line);
   border-bottom:1px solid var(--line);
@@ -456,6 +469,7 @@ section{padding:96px 0;}
 .why-photo-link:hover{color:var(--orange-2); border-color:var(--orange-2);}
 
 /* ---------- GALLERY ---------- */
+.gallery-section{position:relative; overflow:hidden;}
 .gallery-grid{
   display:grid;
   grid-template-columns:1.15fr 0.85fr;
@@ -500,6 +514,7 @@ section{padding:96px 0;}
 .tag-link:hover{background:rgba(124,58,237,0.35); border-color:var(--purple-glow);}
 
 /* ---------- TESTIMONIALS ---------- */
+.testi-section{position:relative; overflow:hidden;}
 .testi-row{
   display:grid;
   grid-template-columns:repeat(3, 1fr);
