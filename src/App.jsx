@@ -14,7 +14,7 @@ export default function App() {
   // Rota interna e escondida — não tem link em nenhum lugar do site público.
   // Só quem digitar /equipe direto na barra de endereço chega nela, e mesmo
   // assim precisa do token de acesso da equipe para ver qualquer coisa.
-  const isTeamRoute = window.location.pathname.replace(/\/+$/, '') === '/equipe'
+  const isTeamRoute = window.location.pathname.replace(/\/+$/, '').toLowerCase() === '/equipe'
 
   if (isTeamRoute) {
     return <TeamPrices />
