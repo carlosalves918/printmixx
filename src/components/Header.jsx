@@ -8,9 +8,10 @@ export default function Header() {
       <nav className="nav">
         <img src={logo} alt="Print Mixx" className="nav-logo" />
         <div className="nav-links">
-          <a href="#servicos">Serviços</a>
+          <a href="#frentes">Especialidades</a>
+          <a href="#servicos">Catálogo</a>
           <a href="#porque">Diferenciais</a>
-          <a href="#galeria">Galeria</a>
+          <a href="#galeria">Onde estamos</a>
           <a href="#depoimentos">Depoimentos</a>
         </div>
         <div className="nav-cta">
