@@ -26,3 +26,9 @@ export function getMapsUrl() {
   const query = encodeURIComponent(`${street}, ${neighborhood}, ${city}, ${zip}`)
   return `https://www.google.com/maps/search/?api=1&query=${query}`
 }
+
+export function getMapsEmbedUrl() {
+  const { street, neighborhood, city, zip } = siteConfig.address
+  const query = encodeURIComponent(`${street}, ${neighborhood}, ${city}, ${zip}`)
+  return `https://www.google.com/maps?q=${query}&output=embed`
+}

@@ -208,9 +208,7 @@ header{
 .hero-visual-img{
   position:relative; z-index:1;
   width:100%;
-  border-radius:20px;
-  border:1px solid var(--line);
-  box-shadow:0 30px 70px -20px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.02);
+  display:block;
 }
 .ribbon-stack{
   position:absolute;
@@ -430,6 +428,19 @@ section{padding:96px 0;}
 }
 .gallery-tall{min-height:520px;}
 .gallery-short{min-height:250px;}
+.gallery-map{position:relative;}
+.gallery-map iframe{
+  width:100%; height:100%;
+  min-height:250px;
+  border:0;
+  display:block;
+  filter:grayscale(0.25) contrast(1.05);
+}
+.tag-link{
+  cursor:pointer;
+  transition:background .2s ease, border-color .2s ease;
+}
+.tag-link:hover{background:rgba(124,58,237,0.35); border-color:var(--purple-glow);}
 
 /* ---------- TESTIMONIALS ---------- */
 .testi-row{
