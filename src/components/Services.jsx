@@ -124,10 +124,10 @@ export default function Services() {
     <section id="servicos">
       <div className="wrap">
         <div ref={headRef} className="section-head reveal">
-          <span className="eyebrow">Catálogo</span>
-          <h2>Nossos serviços</h2>
+          <span className="eyebrow">Catálogo completo</span>
+          <h2>E ainda tem muito mais</h2>
           <p>
-            De cartão de visita a fachada, tudo o que sua marca precisa para aparecer — feito na
+            Da comunicação visual à sublimação, o cardápio completo da Print Mixx — feito na
             régua e entregue rápido.
           </p>
         </div>

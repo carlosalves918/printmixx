@@ -1,5 +1,5 @@
 import fachada from '../assets/fachada.jpg'
-import panfleto from '../assets/panfleto.jpg'
+import panfletoCompleto from '../assets/panfleto-completo.jpg'
 import { useReveal } from '../hooks/useReveal'
 
 export default function Gallery() {
@@ -21,7 +21,7 @@ export default function Gallery() {
             <span className="tag">Nossa fachada</span>
           </div>
           <div ref={shortRef} className="gallery-item gallery-short reveal">
-            <img src={panfleto} alt="Serviços Print Mixx" style={{ objectPosition: 'top' }} />
+            <img src={panfletoCompleto} alt="Catálogo completo de serviços Print Mixx" style={{ objectPosition: 'top' }} />
             <span className="tag">Nosso catálogo</span>
           </div>
         </div>

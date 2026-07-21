@@ -1,5 +1,6 @@
 import Header from './components/Header'
 import Hero from './components/Hero'
+import FeaturedCategories from './components/FeaturedCategories'
 import Services from './components/Services'
 import WhyUs from './components/WhyUs'
 import Gallery from './components/Gallery'
@@ -14,6 +15,7 @@ export default function App() {
       <Header />
       <Hero />
       <div className="colorbar"></div>
+      <FeaturedCategories />
       <Services />
       <WhyUs />
       <Gallery />
