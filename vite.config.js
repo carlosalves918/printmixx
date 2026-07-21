@@ -1,10 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// IMPORTANTE: troque 'printmixx' pelo nome exato do seu repositório no GitHub
-// se o repositório tiver outro nome. Isso é necessário para o GitHub Pages
-// servir os arquivos no caminho correto (https://usuario.github.io/nome-do-repo/).
+// base: '/' funciona para Vercel, Netlify, ou qualquer domínio próprio
+// onde o site fica na RAIZ do domínio (ex: printmixx.vercel.app, printmixx.com.br).
+//
+// Só use um caminho como '/printmixx/' se for publicar especificamente no
+// GitHub Pages em https://usuario.github.io/printmixx/ (subpasta, não raiz).
 export default defineConfig({
   plugins: [react()],
-  base: '/printmixx/',
+  base: '/',
 })

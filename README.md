@@ -1,7 +1,7 @@
 # Print Mixx — Landing Page
 
 Landing page da Print Mixx, feita em React + Vite. Estrutura em componentes, pronta para rodar
-localmente e publicar no GitHub Pages.
+localmente e publicar na Vercel (ou GitHub Pages).
 
 ## Estrutura do projeto
 
@@ -51,9 +51,9 @@ Isso abre o site em `http://localhost:5173`.
 - **Imagens**: troque os arquivos em `src/assets/` mantendo o mesmo nome, ou importe um novo
   arquivo no componente correspondente (`Header.jsx`, `Hero.jsx`, `Gallery.jsx`, `Footer.jsx`).
 
-## Publicando no GitHub Pages
+## Publicando na Vercel (recomendado)
 
-1. Crie um repositório no GitHub (ex: `printmixx`) e suba este projeto:
+1. Suba este projeto para um repositório no GitHub:
 
 ```bash
 git init
@@ -64,29 +64,34 @@ git remote add origin https://github.com/SEU-USUARIO/printmixx.git
 git push -u origin main
 ```
 
-2. Abra `vite.config.js` e `package.json` e troque `SEU-USUARIO` e `printmixx` pelo seu
-   usuário e nome real do repositório, se for diferente:
+2. Entre em [vercel.com](https://vercel.com), clique em **Add New → Project**, e importe esse
+   repositório do GitHub.
 
-   - Em `vite.config.js`: `base: '/printmixx/'`
-   - Em `package.json`: `"homepage": "https://SEU-USUARIO.github.io/printmixx"`
+3. A Vercel detecta sozinha que é um projeto Vite/React. Não precisa mudar nenhuma configuração
+   — clique em **Deploy**.
 
-3. Instale as dependências e publique:
+4. Em alguns segundos o site estará no ar em um endereço tipo
+   `https://printmixx.vercel.app`. Toda vez que você der `git push`, a Vercel publica
+   automaticamente a nova versão.
+
+## Publicando no GitHub Pages (alternativa)
+
+Se preferir usar o GitHub Pages em vez da Vercel:
+
+1. Abra `vite.config.js` e troque `base: '/'` por `base: '/printmixx/'` (ou o nome do seu
+   repositório, se for diferente).
+
+2. Instale as dependências e publique:
 
 ```bash
 npm install
 npm run deploy
 ```
 
-Isso builda o site e publica automaticamente na branch `gh-pages`.
-
-4. No GitHub, vá em **Settings → Pages** e confirme que a branch de publicação está como
-   `gh-pages` (o comando acima já cria e envia essa branch). Em alguns minutos o site estará
-   no ar em `https://SEU-USUARIO.github.io/printmixx`.
-
-Sempre que quiser atualizar o site depois de mudar algo, rode `npm run deploy` de novo.
+3. No GitHub, vá em **Settings → Pages** e confirme que a branch de publicação está como
+   `gh-pages`.
 
 ## Domínio próprio (opcional)
 
-Se você comprar um domínio próprio (ex: `printmixx.com.br`), pode apontá-lo para o GitHub
-Pages criando um arquivo `public/CNAME` com o domínio dentro, e configurando o DNS conforme a
-[documentação do GitHub Pages](https://docs.github.com/pages/configuring-a-custom-domain-for-your-github-pages-site).
+Tanto na Vercel quanto no GitHub Pages, você pode apontar um domínio próprio (ex:
+`printmixx.com.br`) depois, nas configurações de domínio de cada plataforma.
