@@ -8,16 +8,18 @@ import Testimonials from './components/Testimonials'
 import CTA from './components/CTA'
 import Footer from './components/Footer'
 import FloatingWhatsapp from './components/FloatingWhatsapp'
-import TeamPrices from './components/TeamPrices'
+import Equipe from './gestao/Equipe'
 
 export default function App() {
-  // Rota interna e escondida — não tem link em nenhum lugar do site público.
-  // Só quem digitar /equipe direto na barra de endereço chega nela, e mesmo
-  // assim precisa do token de acesso da equipe para ver qualquer coisa.
+  // Rota interna e escondida — não tem link em nenhum lugar do site público,
+  // exceto o ícone de cadeado no header. Só quem clicar nele (ou digitar
+  // /equipe direto) chega aqui, e mesmo assim precisa do token de acesso da
+  // equipe para ver qualquer coisa: dashboard, estoque, pedidos, precificação
+  // e a tabela de preços, tudo dentro do mesmo painel.
   const isTeamRoute = window.location.pathname.replace(/\/+$/, '').toLowerCase() === '/equipe'
 
   if (isTeamRoute) {
-    return <TeamPrices />
+    return <Equipe />
   }
 
   return (

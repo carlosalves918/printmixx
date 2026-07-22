@@ -1,97 +1,149 @@
-# Print Mixx — Landing Page
+# Print Mixx — site + painel de gestão (um projeto só)
 
-Landing page da Print Mixx, feita em React + Vite. Estrutura em componentes, pronta para rodar
-localmente e publicar na Vercel (ou GitHub Pages).
+Este projeto junta os dois sistemas que existiam separados:
+
+- a **fan page / site institucional** (o que qualquer visitante vê);
+- o **painel de gestão** (dashboard, estoque, pedidos, precificação e a
+  tabela de preços), escondido atrás do ícone de cadeado 🔒 no header, que
+  só abre com o token de acesso da equipe.
+
+Tudo roda como um único app React (Vite), publicado como um único projeto na
+Vercel.
 
 ## Estrutura do projeto
 
 ```
-printmixx-react/
-├── index.html
-├── vite.config.js
-├── package.json
+printmixx-unified/
+├── api/
+│   └── prices.js            # função serverless: confere o token e fala com o Supabase
+├── supabase/
+│   └── schema-gestao.sql    # tabelas opcionais do painel de gestão (estoque, pedidos etc.)
 ├── src/
 │   ├── main.jsx
-│   ├── App.jsx
-│   ├── index.css          # todos os estilos e variáveis de cor da marca
-│   ├── siteConfig.js       # WhatsApp, Instagram, endereço e horário — edite aqui
-│   ├── hooks/
-│   │   └── useReveal.js    # animação de entrada ao rolar a página
-│   ├── assets/             # logo, fachada, panfleto
-│   └── components/
-│       ├── Header.jsx
-│       ├── Hero.jsx
-│       ├── Services.jsx
-│       ├── WhyUs.jsx
-│       ├── Gallery.jsx
-│       ├── Testimonials.jsx
-│       ├── CTA.jsx
-│       ├── Footer.jsx
-│       ├── FloatingWhatsapp.jsx
-│       └── icons/WhatsappIcon.jsx
+│   ├── App.jsx               # decide: site público OU /equipe
+│   ├── index.css             # estilos da fan page + estilos da tabela de preços
+│   ├── siteConfig.js         # WhatsApp, Instagram, endereço e horário
+│   ├── assets/                # logo, fotos
+│   ├── components/            # seções da fan page (Header, Hero, Galeria, etc.)
+│   └── gestao/                 # tudo que fica atrás do cadeado
+│       ├── Equipe.jsx           # tela de login (token) + porta de entrada do painel
+│       ├── GestaoApp.jsx        # dashboard completo (estoque, pedidos, precificação...)
+│       ├── PrecosTab.jsx        # a Tabela de Preços, como uma aba do painel
+│       ├── supabaseGestaoClient.js
+│       └── gestao-tailwind.css  # Tailwind isolado, usado só dentro do painel
+├── tailwind.config.js         # Tailwind escaneia só src/gestao — não mexe na fan page
+└── vercel.json
 ```
+
+## Como o cadeado funciona
+
+1. O ícone de cadeado no header leva para `/equipe`.
+2. Lá, pede um **token de acesso** (uma senha só da equipe).
+3. O token é conferido pela função serverless `api/prices.js`, que roda no
+   servidor da Vercel — o token nunca fica exposto no código do site.
+4. Validado uma vez, dá acesso ao painel inteiro: Dashboard, Estoque,
+   Insumos, Composição de Custo, Precificação, **Tabela de Preços**, Vendas,
+   Clientes, Custos e Notas Fiscais — tudo dentro do mesmo menu lateral.
 
 ## Rodando localmente
 
-Você precisa ter o [Node.js](https://nodejs.org) instalado (versão 18 ou superior).
+Precisa do [Node.js](https://nodejs.org) 18+.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Isso abre o site em `http://localhost:5173`.
+Abre em `http://localhost:5173`. O site público funciona sem nenhuma
+configuração extra. Para testar o `/equipe`, configure as variáveis de
+ambiente abaixo primeiro.
 
-## Editando conteúdo
+## Configurando o cadeado e a Tabela de Preços (obrigatório)
 
-- **WhatsApp, Instagram, endereço e horário**: edite `src/siteConfig.js`. Todo o site puxa
-  as informações desse arquivo, então basta trocar em um lugar só.
-- **Textos de cada seção**: cada seção é um componente separado dentro de `src/components/`.
-- **Cores e estilos**: tudo fica em `src/index.css`, nas variáveis no topo do arquivo (`:root`).
-- **Imagens**: troque os arquivos em `src/assets/` mantendo o mesmo nome, ou importe um novo
-  arquivo no componente correspondente (`Header.jsx`, `Hero.jsx`, `Gallery.jsx`, `Footer.jsx`).
+A Tabela de Preços (e o próprio login do `/equipe`) depende de um banco
+Supabase e de variáveis de ambiente. Sem isso, `/equipe` carrega mas o login
+sempre dá erro — é esperado.
 
-## Publicando na Vercel (recomendado)
+1. Crie uma conta gratuita em [supabase.com](https://supabase.com) → **New
+   project**.
+2. No **SQL Editor**, rode:
 
-1. Suba este projeto para um repositório no GitHub:
+   ```sql
+   create table prices (
+     id uuid primary key default gen_random_uuid(),
+     category text not null,
+     item text not null,
+     price text not null default '',
+     notes text default '',
+     updated_at timestamptz not null default now()
+   );
 
-```bash
-git init
-git add .
-git commit -m "Landing page Print Mixx"
-git branch -M main
-git remote add origin https://github.com/SEU-USUARIO/printmixx.git
-git push -u origin main
-```
+   alter table prices enable row level security;
+   ```
 
-2. Entre em [vercel.com](https://vercel.com), clique em **Add New → Project**, e importe esse
-   repositório do GitHub.
+3. Em **Project Settings → API**, copie a **Project URL** e a **service_role
+   key** (a secreta, não a `anon public`).
+4. Escolha um **token de acesso** forte para a equipe (20+ caracteres).
+5. Configure essas 3 variáveis de ambiente (na Vercel: **Settings →
+   Environment Variables**; localmente: crie um arquivo `.env` a partir de
+   `.env.example`):
 
-3. A Vercel detecta sozinha que é um projeto Vite/React. Não precisa mudar nenhuma configuração
-   — clique em **Deploy**.
+   | Nome | Valor |
+   |---|---|
+   | `TEAM_ACCESS_TOKEN` | o token escolhido no passo 4 |
+   | `SUPABASE_URL` | a Project URL |
+   | `SUPABASE_SERVICE_KEY` | a service_role key |
 
-4. Em alguns segundos o site estará no ar em um endereço tipo
-   `https://printmixx.vercel.app`. Toda vez que você der `git push`, a Vercel publica
-   automaticamente a nova versão.
+Pronto: `/equipe` → digitar o token → acesso liberado ao painel e à Tabela
+de Preços.
 
-## Publicando no GitHub Pages (alternativa)
+## Configurando o resto do painel (opcional)
 
-Se preferir usar o GitHub Pages em vez da Vercel:
+Dashboard, Estoque, Insumos, Composição de Custo, Precificação, Vendas,
+Clientes e Notas Fiscais funcionam **sem nenhuma configuração extra** — usam
+dados de exemplo que ficam só na memória do navegador enquanto a aba está
+aberta. Se quiser que esses dados sejam salvos de verdade entre uma visita e
+outra:
 
-1. Abra `vite.config.js` e troque `base: '/'` por `base: '/printmixx/'` (ou o nome do seu
-   repositório, se for diferente).
+1. No mesmo projeto Supabase do passo anterior (ou um novo), rode o script
+   `supabase/schema-gestao.sql` inteiro no **SQL Editor**.
+2. Em **Project Settings → API**, copie a **Project URL** e a **anon
+   public key** (essa é a pública, diferente da service_role usada acima).
+3. Configure mais duas variáveis de ambiente:
 
-2. Instale as dependências e publique:
+   | Nome | Valor |
+   |---|---|
+   | `VITE_SUPABASE_URL` | a Project URL |
+   | `VITE_SUPABASE_ANON_KEY` | a anon public key |
 
-```bash
-npm install
-npm run deploy
-```
+Sem login extra: quem já passou pelo token do `/equipe` tem acesso a essa
+parte também. Se algum dia quiser um login individual por funcionário nessa
+parte específica, dá pra adicionar depois (Supabase Auth resolve isso).
 
-3. No GitHub, vá em **Settings → Pages** e confirme que a branch de publicação está como
-   `gh-pages`.
+## Editando conteúdo da fan page
 
-## Domínio próprio (opcional)
+- **WhatsApp, Instagram, endereço e horário**: `src/siteConfig.js`.
+- **Textos de cada seção**: componentes em `src/components/`.
+- **Cores e estilos da fan page**: `src/index.css` (variáveis em `:root`).
+- **Imagens**: troque os arquivos em `src/assets/` mantendo o nome, ou
+  importe um novo arquivo no componente correspondente.
 
-Tanto na Vercel quanto no GitHub Pages, você pode apontar um domínio próprio (ex:
-`printmixx.com.br`) depois, nas configurações de domínio de cada plataforma.
+## Publicando na Vercel
+
+1. Suba este projeto para um repositório no GitHub.
+2. Em [vercel.com](https://vercel.com) → **Add New → Project** → importe o
+   repositório.
+3. A Vercel detecta sozinha que é Vite/React. Antes de clicar em **Deploy**,
+   adicione as variáveis de ambiente da seção acima.
+4. Deploy. Toda vez que der `git push`, a Vercel publica a nova versão
+   automaticamente.
+
+## Sobre segurança
+
+- A **Tabela de Preços** e o **login do `/equipe`** são seguros de verdade:
+  o token só é conferido no servidor (`api/prices.js`), e a chave do banco
+  nunca chega ao navegador do visitante.
+- O restante do painel de gestão (estoque, pedidos, precificação) é uma
+  ferramenta interna de uso único-usuário: qualquer pessoa com o token entra
+  em tudo. Ótimo para uso pessoal/uma equipe pequena de confiança; se um dia
+  precisar de permissões diferentes por pessoa, isso dá pra evoluir depois.

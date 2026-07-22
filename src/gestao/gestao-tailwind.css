@@ -1,0 +1,6 @@
+/* Tailwind é usado só dentro do painel de gestão (import feito em GestaoApp.jsx).
+   O "preflight" (reset global) fica desligado no tailwind.config.js para não
+   interferir em nada da fan page pública, que usa seu próprio CSS. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

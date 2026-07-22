@@ -773,3 +773,10 @@ a:focus-visible, button:focus-visible{
 .tp-btn-logout:hover{color:var(--ink); border-color:var(--ink-dim);}
 .tp-row-new input{opacity:0.9;}
 .tp-row-error{color:var(--magenta); font-size:12.5px; padding-top:0;}
+
+/* Versão embutida dentro do painel de gestão (dentro da aba "Tabela de Preços") */
+.tp-wrap-embedded{
+  min-height:0; background:transparent; color:inherit; padding:0;
+}
+.tp-wrap-embedded .tp-hint{margin:0 0 16px; max-width:none;}
+.tp-wrap-embedded .tp-table{max-width:none; margin:0;}
