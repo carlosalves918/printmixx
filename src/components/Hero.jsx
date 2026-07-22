@@ -1,5 +1,7 @@
 import logo from '../assets/logo.png'
-import printerImg from '../assets/printer-hero.png'
+import imgGrafica from '../assets/prod-grafica.png'
+import imgVariedades from '../assets/prod-variedades.png'
+import imgPersonalizados from '../assets/prod-personalizados.png'
 import WhatsappIcon from './icons/WhatsappIcon'
 import { getWhatsappUrl } from '../siteConfig'
 
@@ -56,11 +58,16 @@ export default function Hero() {
 
         <div className="hero-visual">
           <div className="hero-visual-glow"></div>
-          <img src={printerImg} alt="Impressora Print Mixx imprimindo comunicação visual colorida" className="hero-visual-img" />
-          <div className="ribbon-stack" aria-hidden="true">
-            <span className="ribbon ribbon-1">Menor</span>
-            <span className="ribbon ribbon-2">Preço</span>
-            <span className="ribbon ribbon-3">da região!</span>
+          <div className="hero-collage">
+            <div className="hero-collage-item hero-collage-1">
+              <img src={imgPersonalizados} alt="Canecas, camisas e kit de aniversário personalizados Print Mixx" loading="lazy" />
+            </div>
+            <div className="hero-collage-item hero-collage-2">
+              <img src={imgGrafica} alt="Cartões de visita e banner personalizado Print Mixx" loading="lazy" />
+            </div>
+            <div className="hero-collage-item hero-collage-3">
+              <img src={imgVariedades} alt="Materiais de escritório, laços e acessórios Print Mixx" loading="lazy" />
+            </div>
           </div>
         </div>
       </div>
