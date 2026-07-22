@@ -46,6 +46,19 @@ create table if not exists produtos_estoque (
   unidade text not null default 'un'
 );
 
+create table if not exists categorias (
+  id text primary key,
+  label text not null,
+  icon text not null default 'Tags',
+  color text not null default '#9333EA'
+);
+
+create table if not exists canais (
+  id text primary key,
+  label text not null,
+  color text not null default '#9333EA'
+);
+
 -- Habilita RLS (Row Level Security) em todas as tabelas
 alter table insumos enable row level security;
 alter table produtos_custeio enable row level security;
@@ -53,6 +66,8 @@ alter table composicao enable row level security;
 alter table precificacao enable row level security;
 alter table pedidos enable row level security;
 alter table produtos_estoque enable row level security;
+alter table categorias enable row level security;
+alter table canais enable row level security;
 
 -- ATENÇÃO: essas políticas liberam leitura/escrita para qualquer pessoa que tenha
 -- a URL + chave anônima do seu projeto (ninguém além de você terá essa chave se
@@ -65,6 +80,8 @@ create policy "permitir tudo - composicao" on composicao for all using (true) wi
 create policy "permitir tudo - precificacao" on precificacao for all using (true) with check (true);
 create policy "permitir tudo - pedidos" on pedidos for all using (true) with check (true);
 create policy "permitir tudo - produtos_estoque" on produtos_estoque for all using (true) with check (true);
+create policy "permitir tudo - categorias" on categorias for all using (true) with check (true);
+create policy "permitir tudo - canais" on canais for all using (true) with check (true);
 
 -- Dados iniciais (mesmos do protótipo) — rode depois de criar as tabelas acima
 
@@ -139,4 +156,17 @@ insert into produtos_estoque (id, nome, categoria, estoque, minimo, custo, preco
   ('AC-001', 'Carregador Turbo USB-C 20W', 'Acessórios', 22, 15, 19.9, 39.9, 'un'),
   ('AC-002', 'Suporte Veicular Magnético', 'Acessórios', 9, 12, 14.5, 32.9, 'un'),
   ('AC-003', 'Cabo USB-C Reforçado 1m', 'Acessórios', 30, 20, 6.2, 16.9, 'un')
+on conflict (id) do nothing;
+
+insert into categorias (id, label, icon, color) values
+  ('Gráfica', 'Serviços Gráficos', 'Printer', '#9333EA'),
+  ('Papelaria', 'Papelaria', 'Pencil', '#FF7A1A'),
+  ('Acessórios', 'Acessórios p/ Celular', 'Smartphone', '#17B6E8'),
+  ('Festa', 'Sacolinhas de Festa', 'PartyPopper', '#F0198A')
+on conflict (id) do nothing;
+
+insert into canais (id, label, color) values
+  ('Shopee', 'Shopee', '#FF7A1A'),
+  ('TikTok Shop', 'TikTok Shop', '#1E88E5'),
+  ('Loja própria', 'Loja própria', '#9333EA')
 on conflict (id) do nothing;

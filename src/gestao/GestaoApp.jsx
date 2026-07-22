@@ -38,12 +38,45 @@ const C = {
 };
 const GRADIENT = `linear-gradient(135deg, ${C.orange} 0%, ${C.pink} 55%, ${C.purple} 100%)`;
 
+// ---------- Cadastros dinâmicos (Categorias e Canais de venda) ----------
+// Ícones disponíveis para o usuário escolher ao cadastrar uma categoria nova.
+const ICON_LIBRARY = {
+  Printer, Pencil, Smartphone, PartyPopper, Package, PackagePlus,
+  Gift, Boxes, Layers, Truck, Headphones, ShoppingBag, ShoppingCart,
+  Tags, Zap, Store, Square,
+};
+const ICON_LIBRARY_KEYS = Object.keys(ICON_LIBRARY);
+
+// Paleta usada pra sugerir uma cor automaticamente quando o usuário cadastra
+// uma categoria/canal novo (ele pode trocar depois).
+const AUTO_COLOR_PALETTE = ["#9333EA", "#FF7A1A", "#17B6E8", "#F0198A", "#FFC300", "#22C55E", "#1E88E5", "#FF4D6D"];
+function nextAutoColor(existingCount) {
+  return AUTO_COLOR_PALETTE[existingCount % AUTO_COLOR_PALETTE.length];
+}
+
+// Busca uma categoria pelo id numa lista dinâmica; se não achar (ex.: categoria
+// excluída depois que o produto foi cadastrado), devolve um fallback neutro
+// pra não quebrar a tela.
+function findCategoria(categorias, id) {
+  return (
+    (categorias || []).find(c => c.id === id) ||
+    { id: id || "—", label: id || "Sem categoria", icon: "Tags", color: "#6B7280" }
+  );
+}
+// Mesma ideia, mas pra canal de venda.
+function findCanal(canais, id) {
+  return (
+    (canais || []).find(c => c.id === id) ||
+    { id: id || "—", label: id || "Canal removido", color: "#6B7280" }
+  );
+}
+
 // ---------- Mock data ----------
-const CATEGORIAS = [
-  { id: "Gráfica", label: "Serviços Gráficos", icon: Printer, color: "#9333EA" },
-  { id: "Papelaria", label: "Papelaria", icon: Pencil, color: "#FF7A1A" },
-  { id: "Acessórios", label: "Acessórios p/ Celular", icon: Smartphone, color: "#17B6E8" },
-  { id: "Festa", label: "Sacolinhas de Festa", icon: PartyPopper, color: "#F0198A" },
+const DEFAULT_CATEGORIAS = [
+  { id: "Gráfica", label: "Serviços Gráficos", icon: "Printer", color: "#9333EA" },
+  { id: "Papelaria", label: "Papelaria", icon: "Pencil", color: "#FF7A1A" },
+  { id: "Acessórios", label: "Acessórios p/ Celular", icon: "Smartphone", color: "#17B6E8" },
+  { id: "Festa", label: "Sacolinhas de Festa", icon: "PartyPopper", color: "#F0198A" },
 ];
 
 const DEFAULT_PRODUTOS_ESTOQUE = [
@@ -62,11 +95,11 @@ const DEFAULT_PRODUTOS_ESTOQUE = [
   { id: "AC-003", nome: "Cabo USB-C Reforçado 1m", categoria: "Acessórios", estoque: 30, minimo: 20, custo: 6.2, preco: 16.9, unidade: "un" },
 ];
 
-const CANAL_STYLE = {
-  Shopee: { fg: C.orange, dot: C.orange },
-  "TikTok Shop": { fg: C.cyan, dot: C.cyan },
-  "Loja própria": { fg: C.purple, dot: C.purple },
-};
+const DEFAULT_CANAIS = [
+  { id: "Shopee", label: "Shopee", color: C.orange },
+  { id: "TikTok Shop", label: "TikTok Shop", color: C.cyan },
+  { id: "Loja própria", label: "Loja própria", color: C.purple },
+];
 const CANAL_BAR_COLORS = [C.orange, C.cyan, C.purple];
 
 const PEDIDOS = [
@@ -269,15 +302,15 @@ function StatusPill({ status }) {
   );
 }
 
-function ChannelBadge({ canal }) {
-  const s = CANAL_STYLE[canal];
+function ChannelBadge({ canal, canais }) {
+  const s = findCanal(canais, canal);
   return (
     <span
       className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider"
-      style={{ color: s.fg, background: `${s.fg}22` }}
+      style={{ color: s.color, background: `${s.color}22` }}
     >
-      <span style={{ width: 6, height: 6, borderRadius: 9999, background: s.dot }} />
-      {canal}
+      <span style={{ width: 6, height: 6, borderRadius: 9999, background: s.color }} />
+      {s.label}
     </span>
   );
 }
@@ -496,7 +529,7 @@ function Dashboard({ pedidosState, produtos, onOpenPrecos }) {
   );
 }
 
-function Estoque({ produtos, setProdutos }) {
+function Estoque({ produtos, setProdutos, categorias }) {
   const [query, setQuery] = useState("");
   const [categoriaAtiva, setCategoriaAtiva] = useState("Todas");
 
@@ -513,7 +546,7 @@ function Estoque({ produtos, setProdutos }) {
     const novo = {
       id: `NP-${Date.now()}`,
       nome: "Novo Produto",
-      categoria: CATEGORIAS[0].id,
+      categoria: categorias[0]?.id || "",
       estoque: 0,
       minimo: 0,
       custo: 0,
@@ -537,8 +570,8 @@ function Estoque({ produtos, setProdutos }) {
         >
           Todas
         </button>
-        {CATEGORIAS.map(cat => {
-          const Icon = cat.icon;
+        {categorias.map(cat => {
+          const Icon = ICON_LIBRARY[cat.icon] || Tags;
           const active = categoriaAtiva === cat.id;
           return (
             <button
@@ -556,6 +589,11 @@ function Estoque({ produtos, setProdutos }) {
             </button>
           );
         })}
+        {categorias.length === 0 && (
+          <span className="text-xs" style={{ color: C.textMuted }}>
+            Nenhuma categoria cadastrada ainda — cadastre em "Cadastros" para poder classificar os produtos.
+          </span>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-3">
@@ -589,7 +627,7 @@ function Estoque({ produtos, setProdutos }) {
           <tbody>
             {filtered.map(p => {
               const baixo = p.estoque < p.minimo;
-              const cat = CATEGORIAS.find(c => c.id === p.categoria) || CATEGORIAS[0];
+              const cat = findCategoria(categorias, p.categoria);
               return (
                 <tr key={p.id} style={{ borderTop: `1px solid ${C.border}` }}>
                   <td className="px-4 py-2">
@@ -608,9 +646,12 @@ function Estoque({ produtos, setProdutos }) {
                       className="text-[11px] font-bold uppercase tracking-wider px-2 py-1.5 rounded-md outline-none"
                       style={{ color: cat.color, background: `${cat.color}22`, border: `1px solid ${cat.color}55` }}
                     >
-                      {CATEGORIAS.map(c => (
-                        <option key={c.id} value={c.id}>{c.id}</option>
+                      {categorias.map(c => (
+                        <option key={c.id} value={c.id}>{c.label}</option>
                       ))}
+                      {!categorias.some(c => c.id === p.categoria) && (
+                        <option value={p.categoria}>{cat.label}</option>
+                      )}
                     </select>
                   </td>
                   <td className="px-4 py-2 text-right">
@@ -668,8 +709,7 @@ function Estoque({ produtos, setProdutos }) {
   );
 }
 
-function Vendas({ pedidosState, setPedidosState }) {
-  const canais = Object.keys(CANAL_STYLE);
+function Vendas({ pedidosState, setPedidosState, canais }) {
   const statusOptions = [
     { value: "aguardando_nf", label: "Aguardando NF" },
     { value: "emitida", label: "NF emitida" },
@@ -686,7 +726,7 @@ function Vendas({ pedidosState, setPedidosState }) {
     const novo = {
       id: `#${Math.floor(10000 + Math.random() * 89999)}`,
       cliente: "Novo cliente",
-      canal: canais[0],
+      canal: canais[0]?.id || "",
       itens: "",
       total: 0,
       status: "aguardando_nf",
@@ -701,6 +741,7 @@ function Vendas({ pedidosState, setPedidosState }) {
         <p className="text-xs" style={{ color: C.textMuted }}>
           Cada linha aqui é um pedido. A aba Clientes é calculada automaticamente a partir
           dessa lista — adicionar, editar ou excluir um pedido atualiza os clientes na hora.
+          {canais.length === 0 && " Cadastre ao menos um canal de venda em \"Cadastros\" antes de lançar pedidos."}
         </p>
         <GradButton onClick={addPedido} className="shrink-0">
           <Plus size={14} /> Novo pedido
@@ -733,16 +774,24 @@ function Vendas({ pedidosState, setPedidosState }) {
                   />
                 </td>
                 <td className="px-4 py-2">
-                  <select
-                    value={p.canal}
-                    onChange={e => updatePedido(p.id, "canal", e.target.value)}
-                    className="text-[11px] font-bold uppercase tracking-wider px-2 py-1.5 rounded-md outline-none"
-                    style={{ color: CANAL_STYLE[p.canal].fg, background: `${CANAL_STYLE[p.canal].fg}22`, border: `1px solid ${CANAL_STYLE[p.canal].fg}55` }}
-                  >
-                    {canais.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+                  {(() => {
+                    const canalAtual = findCanal(canais, p.canal);
+                    return (
+                      <select
+                        value={p.canal}
+                        onChange={e => updatePedido(p.id, "canal", e.target.value)}
+                        className="text-[11px] font-bold uppercase tracking-wider px-2 py-1.5 rounded-md outline-none"
+                        style={{ color: canalAtual.color, background: `${canalAtual.color}22`, border: `1px solid ${canalAtual.color}55` }}
+                      >
+                        {canais.map(c => (
+                          <option key={c.id} value={c.id}>{c.label}</option>
+                        ))}
+                        {!canais.some(c => c.id === p.canal) && (
+                          <option value={p.canal}>{canalAtual.label}</option>
+                        )}
+                      </select>
+                    );
+                  })()}
                 </td>
                 <td className="px-4 py-2">
                   <input
@@ -849,7 +898,7 @@ function Custos({ produtos }) {
   );
 }
 
-function NotasFiscais({ pedidosState, setPedidosState }) {
+function NotasFiscais({ pedidosState, setPedidosState, canais }) {
   const [modo, setModo] = useState("mei");
 
   const marcarEmitida = (id) => {
@@ -945,7 +994,7 @@ function NotasFiscais({ pedidosState, setPedidosState }) {
             {pedidosState.map(p => (
               <tr key={p.id} style={{ borderTop: `1px solid ${C.border}` }}>
                 <td className="px-4 py-2.5 font-mono" style={{ color: C.text }}>{p.id}</td>
-                <td className="px-4 py-2.5"><ChannelBadge canal={p.canal} /></td>
+                <td className="px-4 py-2.5"><ChannelBadge canal={p.canal} canais={canais} /></td>
                 <td className="px-4 py-2.5 font-mono text-xs" style={{ color: C.textMuted }}>{p.data}</td>
                 <td className="px-4 py-2.5"><StatusPill status={p.status} /></td>
                 <td className="px-4 py-2.5 text-right">
@@ -1050,6 +1099,212 @@ function InsumosTab({ insumos, setInsumos }) {
       >
         <Plus size={13} /> adicionar insumo
       </button>
+    </div>
+  );
+}
+
+function CadastrosTab({ categorias, setCategorias, canais, setCanais, produtos, pedidosState }) {
+  const updateCategoria = (id, field, value) =>
+    setCategorias(prev => prev.map(c => (c.id === id ? { ...c, [field]: value } : c)));
+  const addCategoria = () => {
+    const nova = {
+      id: `cat-${Date.now()}`,
+      label: "Nova categoria",
+      icon: "Tags",
+      color: nextAutoColor(categorias.length),
+    };
+    setCategorias(prev => [...prev, nova]);
+  };
+  const removeCategoria = (id) => {
+    const emUso = produtos.filter(p => p.categoria === id).length;
+    const msg = emUso
+      ? `${emUso} produto(s) do Estoque usam essa categoria. Se excluir, eles ficam marcados como "sem categoria". Continuar?`
+      : "Excluir essa categoria?";
+    if (!window.confirm(msg)) return;
+    setCategorias(prev => prev.filter(c => c.id !== id));
+  };
+
+  const updateCanal = (id, field, value) =>
+    setCanais(prev => prev.map(c => (c.id === id ? { ...c, [field]: value } : c)));
+  const addCanal = () => {
+    const novo = {
+      id: `canal-${Date.now()}`,
+      label: "Novo canal",
+      color: nextAutoColor(canais.length),
+    };
+    setCanais(prev => [...prev, novo]);
+  };
+  const removeCanal = (id) => {
+    const emUso = pedidosState.filter(p => p.canal === id).length;
+    const msg = emUso
+      ? `${emUso} pedido(s) em Vendas usam esse canal. Se excluir, eles continuam com o registro antigo, mas o canal some da lista pra novos pedidos. Continuar?`
+      : "Excluir esse canal de venda?";
+    if (!window.confirm(msg)) return;
+    setCanais(prev => prev.filter(c => c.id !== id));
+  };
+
+  return (
+    <div className="flex flex-col gap-8">
+      <GlowCard className="p-4">
+        <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
+          Cadastre aqui as categorias de produto e os canais/locais de venda de verdade da Print Mixx.
+          Essas listas alimentam o Estoque, as Vendas e a Tabela de Preços — nada de dado fictício fixo no código.
+        </p>
+      </GlowCard>
+
+      {/* Categorias de produto */}
+      <div className="flex flex-col gap-3">
+        <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: C.text, fontFamily: "'Poppins', sans-serif" }}>
+          Categorias de produto
+        </h3>
+        <GlowCard className="overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ background: C.panelAlt, color: C.textMuted }}>
+                <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Ícone</th>
+                <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Nome</th>
+                <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Cor</th>
+                <th className="text-right font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Em uso</th>
+                <th className="px-4 py-2.5"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {categorias.map(cat => {
+                const Icon = ICON_LIBRARY[cat.icon] || Tags;
+                const emUso = produtos.filter(p => p.categoria === cat.id).length;
+                return (
+                  <tr key={cat.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                    <td className="px-4 py-2">
+                      <select
+                        value={cat.icon}
+                        onChange={e => updateCategoria(cat.id, "icon", e.target.value)}
+                        className="text-sm px-2 py-1.5 rounded-md outline-none"
+                        style={{ border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
+                      >
+                        {ICON_LIBRARY_KEYS.map(k => (
+                          <option key={k} value={k}>{k}</option>
+                        ))}
+                      </select>
+                      <span className="inline-flex ml-2 align-middle" style={{ color: cat.color }}>
+                        <Icon size={16} />
+                      </span>
+                    </td>
+                    <td className="px-4 py-2">
+                      <input
+                        value={cat.label}
+                        onChange={e => updateCategoria(cat.id, "label", e.target.value)}
+                        className="w-full text-sm px-2 py-1.5 rounded-md outline-none font-semibold"
+                        style={{ border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
+                      />
+                    </td>
+                    <td className="px-4 py-2">
+                      <input
+                        type="color"
+                        value={cat.color}
+                        onChange={e => updateCategoria(cat.id, "color", e.target.value)}
+                        className="w-10 h-8 rounded-md outline-none cursor-pointer"
+                        style={{ border: `1px solid ${C.border}`, background: "transparent" }}
+                      />
+                    </td>
+                    <td className="px-4 py-2 text-right font-mono text-xs" style={{ color: C.textMuted }}>
+                      {emUso} produto(s)
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <button onClick={() => removeCategoria(cat.id)} style={{ color: C.red }}>
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {categorias.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-4 text-center text-xs" style={{ color: C.textMuted }}>
+                    Nenhuma categoria cadastrada ainda.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </GlowCard>
+        <button
+          onClick={addCategoria}
+          className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide w-fit"
+          style={{ color: C.cyan }}
+        >
+          <Plus size={13} /> adicionar categoria
+        </button>
+      </div>
+
+      {/* Canais de venda / local de venda */}
+      <div className="flex flex-col gap-3">
+        <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: C.text, fontFamily: "'Poppins', sans-serif" }}>
+          Canais de venda (local de venda)
+        </h3>
+        <GlowCard className="overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ background: C.panelAlt, color: C.textMuted }}>
+                <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Nome</th>
+                <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Cor</th>
+                <th className="text-right font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Em uso</th>
+                <th className="px-4 py-2.5"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {canais.map(canal => {
+                const emUso = pedidosState.filter(p => p.canal === canal.id).length;
+                return (
+                  <tr key={canal.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-2">
+                        <span style={{ width: 8, height: 8, borderRadius: 9999, background: canal.color }} />
+                        <input
+                          value={canal.label}
+                          onChange={e => updateCanal(canal.id, "label", e.target.value)}
+                          className="w-full text-sm px-2 py-1.5 rounded-md outline-none font-semibold"
+                          style={{ border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
+                        />
+                      </div>
+                    </td>
+                    <td className="px-4 py-2">
+                      <input
+                        type="color"
+                        value={canal.color}
+                        onChange={e => updateCanal(canal.id, "color", e.target.value)}
+                        className="w-10 h-8 rounded-md outline-none cursor-pointer"
+                        style={{ border: `1px solid ${C.border}`, background: "transparent" }}
+                      />
+                    </td>
+                    <td className="px-4 py-2 text-right font-mono text-xs" style={{ color: C.textMuted }}>
+                      {emUso} pedido(s)
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <button onClick={() => removeCanal(canal.id)} style={{ color: C.red }}>
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {canais.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-4 text-center text-xs" style={{ color: C.textMuted }}>
+                    Nenhum canal de venda cadastrado ainda.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </GlowCard>
+        <button
+          onClick={addCanal}
+          className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide w-fit"
+          style={{ color: C.cyan }}
+        >
+          <Plus size={13} /> adicionar canal de venda
+        </button>
+      </div>
     </div>
   );
 }
@@ -1266,7 +1521,7 @@ function PrecificacaoTab({ produtosCusteio, composicao, insumos, precificacao, s
 }
 
 
-function Clientes({ pedidosState }) {
+function Clientes({ pedidosState, canais }) {
   const CLIENTES = Object.values(
     pedidosState.reduce((acc, p) => {
       if (!acc[p.cliente]) acc[p.cliente] = { nome: p.cliente, canal: p.canal, pedidos: 0, total: 0, ultimo: p.data };
@@ -1312,7 +1567,7 @@ function Clientes({ pedidosState }) {
                     <span className="font-semibold" style={{ color: C.text }}>{c.nome}</span>
                   </div>
                 </td>
-                <td className="px-4 py-2.5"><ChannelBadge canal={c.canal} /></td>
+                <td className="px-4 py-2.5"><ChannelBadge canal={c.canal} canais={canais} /></td>
                 <td className="px-4 py-2.5 text-right font-mono" style={{ color: C.textMuted }}>{c.pedidos}</td>
                 <td className="px-4 py-2.5 text-right font-mono font-bold" style={{ color: C.green }}>R$ {c.total.toFixed(2)}</td>
                 <td className="px-4 py-2.5 font-mono text-xs" style={{ color: C.textMuted }}>{c.ultimo}</td>
@@ -1329,6 +1584,7 @@ function Clientes({ pedidosState }) {
 const NAV = [
   { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
   { key: "precos", label: "Tabela de Preços", icon: Tags, destaque: true },
+  { key: "cadastros", label: "Cadastros", icon: Store },
   { key: "estoque", label: "Estoque", icon: Package },
   { key: "insumos", label: "Insumos", icon: Boxes },
   { key: "composicao", label: "Composição de Custo", icon: Layers },
@@ -1349,6 +1605,8 @@ export default function GestaoApp({ token, onLogout }) {
   const [precificacao, setPrecificacao] = useState(DEFAULT_PRECIFICACAO);
   const [pedidosState, setPedidosState] = useState(PEDIDOS);
   const [produtos, setProdutos] = useState(DEFAULT_PRODUTOS_ESTOQUE);
+  const [categorias, setCategorias] = useState(DEFAULT_CATEGORIAS);
+  const [canais, setCanais] = useState(DEFAULT_CANAIS);
 
   // Carrega os dados do Supabase ao abrir o app (só se o painel tiver banco configurado —
   // sem isso, ele funciona normalmente com os dados de exemplo, sem gravar nada)
@@ -1359,13 +1617,15 @@ export default function GestaoApp({ token, onLogout }) {
     }
     (async () => {
       try {
-        const [insumosRes, produtosRes, composicaoRes, precifRes, pedidosRes, estoqueRes] = await Promise.all([
+        const [insumosRes, produtosRes, composicaoRes, precifRes, pedidosRes, estoqueRes, categoriasRes, canaisRes] = await Promise.all([
           supabaseGestao.from("insumos").select("*"),
           supabaseGestao.from("produtos_custeio").select("*"),
           supabaseGestao.from("composicao").select("*"),
           supabaseGestao.from("precificacao").select("*"),
           supabaseGestao.from("pedidos").select("*"),
           supabaseGestao.from("produtos_estoque").select("*"),
+          supabaseGestao.from("categorias").select("*"),
+          supabaseGestao.from("canais").select("*"),
         ]);
         if (insumosRes.data?.length)
           setInsumos(insumosRes.data.map(r => ({ id: r.id, nome: r.nome, unidade: r.unidade, custo: Number(r.custo) })));
@@ -1385,6 +1645,10 @@ export default function GestaoApp({ token, onLogout }) {
             id: r.id, nome: r.nome, categoria: r.categoria, estoque: Number(r.estoque),
             minimo: Number(r.minimo), custo: Number(r.custo), preco: Number(r.preco), unidade: r.unidade,
           })));
+        if (categoriasRes.data?.length)
+          setCategorias(categoriasRes.data.map(r => ({ id: r.id, label: r.label, icon: r.icon, color: r.color })));
+        if (canaisRes.data?.length)
+          setCanais(canaisRes.data.map(r => ({ id: r.id, label: r.label, color: r.color })));
       } catch (e) {
         console.error("Erro ao carregar do Supabase:", e);
       }
@@ -1404,6 +1668,8 @@ export default function GestaoApp({ token, onLogout }) {
         await supabaseGestao.from("insumos").delete().neq("id", "");
         await supabaseGestao.from("pedidos").delete().neq("id", "");
         await supabaseGestao.from("produtos_estoque").delete().neq("id", "");
+        await supabaseGestao.from("categorias").delete().neq("id", "");
+        await supabaseGestao.from("canais").delete().neq("id", "");
 
         // reinsere o estado atual
         if (insumos.length)
@@ -1427,6 +1693,14 @@ export default function GestaoApp({ token, onLogout }) {
               minimo: p.minimo, custo: p.custo, preco: p.preco, unidade: p.unidade,
             }))
           );
+        if (categorias.length)
+          await supabaseGestao.from("categorias").insert(
+            categorias.map(c => ({ id: c.id, label: c.label, icon: c.icon, color: c.color }))
+          );
+        if (canais.length)
+          await supabaseGestao.from("canais").insert(
+            canais.map(c => ({ id: c.id, label: c.label, color: c.color }))
+          );
         setSaveError(false);
       } catch (e) {
         console.error("Erro ao salvar no Supabase:", e);
@@ -1434,7 +1708,7 @@ export default function GestaoApp({ token, onLogout }) {
       }
     }, 700);
     return () => clearTimeout(timer);
-  }, [loaded, insumos, produtosCusteio, composicao, precificacao, pedidosState, produtos]);
+  }, [loaded, insumos, produtosCusteio, composicao, precificacao, pedidosState, produtos, categorias, canais]);
 
   const resetDados = () => {
     setInsumos(DEFAULT_INSUMOS);
@@ -1443,10 +1717,13 @@ export default function GestaoApp({ token, onLogout }) {
     setPrecificacao(DEFAULT_PRECIFICACAO);
     setPedidosState(PEDIDOS);
     setProdutos(DEFAULT_PRODUTOS_ESTOQUE);
+    setCategorias(DEFAULT_CATEGORIAS);
+    setCanais(DEFAULT_CANAIS);
   };
 
   const titleMap = {
     dashboard: "Visão geral",
+    cadastros: "Cadastros — categorias e canais de venda",
     estoque: "Estoque",
     insumos: "Insumos",
     composicao: "Composição de Custo",
@@ -1578,12 +1855,22 @@ export default function GestaoApp({ token, onLogout }) {
           </div>
           <div className="flex items-center gap-2 text-xs font-mono relative z-10" style={{ color: C.textMuted }}>
             <Store size={13} />
-            3 canais conectados
+            {canais.length} {canais.length === 1 ? "canal" : "canais"} de venda cadastrado{canais.length === 1 ? "" : "s"}
           </div>
         </header>
         <div className="p-8 relative z-10">
           {tab === "dashboard" && <Dashboard pedidosState={pedidosState} produtos={produtos} onOpenPrecos={() => setTab("precos")} />}
-          {tab === "estoque" && <Estoque produtos={produtos} setProdutos={setProdutos} />}
+          {tab === "cadastros" && (
+            <CadastrosTab
+              categorias={categorias}
+              setCategorias={setCategorias}
+              canais={canais}
+              setCanais={setCanais}
+              produtos={produtos}
+              pedidosState={pedidosState}
+            />
+          )}
+          {tab === "estoque" && <Estoque produtos={produtos} setProdutos={setProdutos} categorias={categorias} />}
           {tab === "insumos" && <InsumosTab insumos={insumos} setInsumos={setInsumos} />}
           {tab === "composicao" && (
             <ComposicaoTab
@@ -1603,11 +1890,11 @@ export default function GestaoApp({ token, onLogout }) {
               setPrecificacao={setPrecificacao}
             />
           )}
-          {tab === "precos" && <PrecosTab token={token} />}
-          {tab === "vendas" && <Vendas pedidosState={pedidosState} setPedidosState={setPedidosState} />}
-          {tab === "clientes" && <Clientes pedidosState={pedidosState} />}
+          {tab === "precos" && <PrecosTab token={token} categorias={categorias} />}
+          {tab === "vendas" && <Vendas pedidosState={pedidosState} setPedidosState={setPedidosState} canais={canais} />}
+          {tab === "clientes" && <Clientes pedidosState={pedidosState} canais={canais} />}
           {tab === "custos" && <Custos produtos={produtos} />}
-          {tab === "nf" && <NotasFiscais pedidosState={pedidosState} setPedidosState={setPedidosState} />}
+          {tab === "nf" && <NotasFiscais pedidosState={pedidosState} setPedidosState={setPedidosState} canais={canais} />}
         </div>
       </main>
     </div>

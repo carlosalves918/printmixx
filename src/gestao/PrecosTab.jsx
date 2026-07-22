@@ -15,7 +15,7 @@ async function apiCall(token, method, body, id) {
   return data
 }
 
-function EditableRow({ row, token, onSaved, onDeleted }) {
+function EditableRow({ row, token, categorias, onSaved, onDeleted }) {
   const [draft, setDraft] = useState(row)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -50,7 +50,14 @@ function EditableRow({ row, token, onSaved, onDeleted }) {
   return (
     <tr className="tp-row">
       <td>
-        <input value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} />
+        <select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>
+          {categorias.map((c) => (
+            <option key={c.id} value={c.label}>{c.label}</option>
+          ))}
+          {!categorias.some((c) => c.label === draft.category) && draft.category && (
+            <option value={draft.category}>{draft.category}</option>
+          )}
+        </select>
       </td>
       <td>
         <input value={draft.item} onChange={(e) => setDraft({ ...draft, item: e.target.value })} />
@@ -78,8 +85,8 @@ function EditableRow({ row, token, onSaved, onDeleted }) {
   )
 }
 
-function NewRow({ token, onCreated }) {
-  const empty = { category: '', item: '', price: '', notes: '' }
+function NewRow({ token, categorias, onCreated }) {
+  const empty = { category: categorias[0]?.label || '', item: '', price: '', notes: '' }
   const [draft, setDraft] = useState(empty)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -105,7 +112,12 @@ function NewRow({ token, onCreated }) {
   return (
     <tr className="tp-row tp-row-new">
       <td>
-        <input placeholder="Categoria" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} />
+        <select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>
+          <option value="">Selecione a categoria</option>
+          {categorias.map((c) => (
+            <option key={c.id} value={c.label}>{c.label}</option>
+          ))}
+        </select>
       </td>
       <td>
         <input placeholder="Item / serviço" value={draft.item} onChange={(e) => setDraft({ ...draft, item: e.target.value })} />
@@ -133,7 +145,7 @@ function NewRow({ token, onCreated }) {
 // Aba "Tabela de Preços" dentro do painel de gestão. Usa o mesmo token de acesso
 // da equipe (já validado na tela de login do painel) para falar com a função
 // serverless /api/prices, que é quem realmente confere o token e fala com o banco.
-export default function PrecosTab({ token }) {
+export default function PrecosTab({ token, categorias = [] }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -162,6 +174,7 @@ export default function PrecosTab({ token }) {
       <p className="tp-hint">
         Essa tabela é a mesma que fica escondida do site público. Edite os campos e clique em
         "Salvar" em cada linha para atualizar — some na hora para quem tiver acesso.
+        {categorias.length === 0 && ' Cadastre categorias em "Cadastros" para poder classificá-las aqui.'}
       </p>
       {loading && <p className="tp-hint">Carregando preços...</p>}
       {error && <p className="tp-gate-error">{error}</p>}
@@ -182,11 +195,12 @@ export default function PrecosTab({ token }) {
                 key={row.id}
                 row={row}
                 token={token}
+                categorias={categorias}
                 onSaved={(updated) => setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))}
                 onDeleted={(id) => setRows((prev) => prev.filter((r) => r.id !== id))}
               />
             ))}
-            <NewRow token={token} onCreated={(created) => setRows((prev) => [...prev, created])} />
+            <NewRow token={token} categorias={categorias} onCreated={(created) => setRows((prev) => [...prev, created])} />
           </tbody>
         </table>
       )}
