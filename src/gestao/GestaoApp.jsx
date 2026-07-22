@@ -374,13 +374,35 @@ function Kpi({ label, value, delta, positive, gradient }) {
   );
 }
 
-function Dashboard({ pedidosState, produtos }) {
+function Dashboard({ pedidosState, produtos, onOpenPrecos }) {
   const estoqueBaixo = produtos.filter(p => p.estoque < p.minimo);
   const nfPendentes = pedidosState.filter(p => p.status !== "emitida").length;
 
   return (
     <div className="flex flex-col gap-6">
       <HeroBanner />
+
+      <button
+        onClick={onOpenPrecos}
+        className="w-full flex items-center justify-between gap-4 p-4 rounded-xl text-left transition-transform hover:-translate-y-0.5"
+        style={{ background: C.goldBg, border: `1px solid rgba(255,195,0,0.4)` }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: C.gold }}>
+            <Tags size={18} color="#241640" />
+          </div>
+          <div>
+            <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: C.gold, fontFamily: "'Poppins', sans-serif" }}>
+              Tabela de Preços — consulta rápida
+            </div>
+            <div className="text-xs font-medium" style={{ color: C.textMuted }}>
+              Veja e atualize os valores de tudo que a Print Mixx vende, num lugar só
+            </div>
+          </div>
+        </div>
+        <ChevronRight size={18} color={C.gold} className="shrink-0" />
+      </button>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Kpi label="Vendas hoje" value="R$ 430,00" delta="+12% vs ontem" positive gradient />
         <Kpi label="Ticket médio" value="R$ 61,20" delta="+3,4%" positive />
@@ -646,34 +668,127 @@ function Estoque({ produtos, setProdutos }) {
   );
 }
 
-function Vendas({ pedidosState }) {
+function Vendas({ pedidosState, setPedidosState }) {
+  const canais = Object.keys(CANAL_STYLE);
+  const statusOptions = [
+    { value: "aguardando_nf", label: "Aguardando NF" },
+    { value: "emitida", label: "NF emitida" },
+    { value: "erro", label: "Erro emissão" },
+  ];
+
+  const updatePedido = (id, field, value) =>
+    setPedidosState(prev => prev.map(p => (p.id === id ? { ...p, [field]: value } : p)));
+  const removePedido = (id) => {
+    if (!window.confirm("Excluir esse pedido? Isso também some com ele na aba Clientes.")) return;
+    setPedidosState(prev => prev.filter(p => p.id !== id));
+  };
+  const addPedido = () => {
+    const novo = {
+      id: `#${Math.floor(10000 + Math.random() * 89999)}`,
+      cliente: "Novo cliente",
+      canal: canais[0],
+      itens: "",
+      total: 0,
+      status: "aguardando_nf",
+      data: new Date().toLocaleDateString("pt-BR") + " " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+    };
+    setPedidosState(prev => [novo, ...prev]);
+  };
+
   return (
-    <GlowCard className="overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr style={{ background: C.panelAlt, color: C.textMuted }}>
-            <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Pedido</th>
-            <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Cliente</th>
-            <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Canal</th>
-            <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Itens</th>
-            <th className="text-right font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Total</th>
-            <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Nota Fiscal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pedidosState.map(p => (
-            <tr key={p.id} style={{ borderTop: `1px solid ${C.border}` }}>
-              <td className="px-4 py-2.5 font-mono" style={{ color: C.text }}>{p.id}</td>
-              <td className="px-4 py-2.5" style={{ color: C.textMuted }}>{p.cliente}</td>
-              <td className="px-4 py-2.5"><ChannelBadge canal={p.canal} /></td>
-              <td className="px-4 py-2.5" style={{ color: C.textMuted }}>{p.itens}</td>
-              <td className="px-4 py-2.5 text-right font-mono font-bold" style={{ color: C.text }}>R$ {p.total.toFixed(2)}</td>
-              <td className="px-4 py-2.5"><StatusPill status={p.status} /></td>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs" style={{ color: C.textMuted }}>
+          Cada linha aqui é um pedido. A aba Clientes é calculada automaticamente a partir
+          dessa lista — adicionar, editar ou excluir um pedido atualiza os clientes na hora.
+        </p>
+        <GradButton onClick={addPedido} className="shrink-0">
+          <Plus size={14} /> Novo pedido
+        </GradButton>
+      </div>
+
+      <GlowCard className="overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr style={{ background: C.panelAlt, color: C.textMuted }}>
+              <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Pedido</th>
+              <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Cliente</th>
+              <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Canal</th>
+              <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Itens</th>
+              <th className="text-right font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Total</th>
+              <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Nota Fiscal</th>
+              <th className="px-4 py-2.5"></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </GlowCard>
+          </thead>
+          <tbody>
+            {pedidosState.map(p => (
+              <tr key={p.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                <td className="px-4 py-2 font-mono" style={{ color: C.text }}>{p.id}</td>
+                <td className="px-4 py-2">
+                  <input
+                    value={p.cliente}
+                    onChange={e => updatePedido(p.id, "cliente", e.target.value)}
+                    className="w-full text-sm px-2 py-1.5 rounded-md outline-none font-semibold"
+                    style={{ border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
+                  />
+                </td>
+                <td className="px-4 py-2">
+                  <select
+                    value={p.canal}
+                    onChange={e => updatePedido(p.id, "canal", e.target.value)}
+                    className="text-[11px] font-bold uppercase tracking-wider px-2 py-1.5 rounded-md outline-none"
+                    style={{ color: CANAL_STYLE[p.canal].fg, background: `${CANAL_STYLE[p.canal].fg}22`, border: `1px solid ${CANAL_STYLE[p.canal].fg}55` }}
+                  >
+                    {canais.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-2">
+                  <input
+                    value={p.itens}
+                    onChange={e => updatePedido(p.id, "itens", e.target.value)}
+                    placeholder="Ex: Kit Festa Completo x1"
+                    className="w-full text-sm px-2 py-1.5 rounded-md outline-none"
+                    style={{ border: `1px solid ${C.border}`, background: C.panelAlt, color: C.textMuted, minWidth: 180 }}
+                  />
+                </td>
+                <td className="px-4 py-2 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-xs" style={{ color: C.textMuted }}>R$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={p.total}
+                      onChange={e => updatePedido(p.id, "total", parseFloat(e.target.value) || 0)}
+                      className="w-20 text-sm px-2 py-1.5 rounded-md outline-none font-mono text-right font-bold"
+                      style={{ border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
+                    />
+                  </div>
+                </td>
+                <td className="px-4 py-2">
+                  <select
+                    value={p.status}
+                    onChange={e => updatePedido(p.id, "status", e.target.value)}
+                    className="text-[11px] font-bold px-2 py-1.5 rounded-md outline-none"
+                    style={{ color: C.text, background: C.panelAlt, border: `1px solid ${C.border}` }}
+                  >
+                    {statusOptions.map(s => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-2 text-right">
+                  <button onClick={() => removePedido(p.id)} style={{ color: C.red }}>
+                    <Trash2 size={14} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </GlowCard>
+    </div>
   );
 }
 
@@ -1163,6 +1278,10 @@ function Clientes({ pedidosState }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <p className="text-xs" style={{ color: C.textMuted }}>
+        Essa lista é calculada automaticamente a partir dos pedidos da aba <strong>Vendas</strong>.
+        Pra adicionar, editar ou remover um cliente, mexa nos pedidos dele por lá.
+      </p>
       <div className="grid grid-cols-3 gap-3">
         <Kpi label="Clientes ativos" value={CLIENTES.length} />
         <Kpi label="Ticket médio/cliente" value={`R$ ${(CLIENTES.reduce((s, c) => s + c.total, 0) / (CLIENTES.length || 1)).toFixed(2)}`} gradient />
@@ -1209,11 +1328,11 @@ function Clientes({ pedidosState }) {
 // ---------- Shell ----------
 const NAV = [
   { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
+  { key: "precos", label: "Tabela de Preços", icon: Tags, destaque: true },
   { key: "estoque", label: "Estoque", icon: Package },
   { key: "insumos", label: "Insumos", icon: Boxes },
   { key: "composicao", label: "Composição de Custo", icon: Layers },
   { key: "precificacao", label: "Precificação", icon: Calculator },
-  { key: "precos", label: "Tabela de Preços", icon: Tags },
   { key: "vendas", label: "Vendas", icon: ShoppingBag },
   { key: "clientes", label: "Clientes", icon: Users },
   { key: "custos", label: "Custos", icon: TrendingUp },
@@ -1361,24 +1480,35 @@ export default function GestaoApp({ token, onLogout }) {
           </div>
         </div>
         <nav className="flex-1 py-4 flex flex-col gap-0.5 px-3">
-          {NAV.map(item => {
+          {NAV.map((item, i) => {
             const Icon = item.icon;
             const active = tab === item.key;
             return (
-              <button
-                key={item.key}
-                onClick={() => setTab(item.key)}
-                className="flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm text-left transition-colors"
-                style={{
-                  background: active ? GRADIENT : "transparent",
-                  color: active ? "#fff" : C.textMuted,
-                  fontWeight: active ? 700 : 500,
-                }}
-              >
-                <Icon size={15} />
-                {item.label}
-                {active && <ChevronRight size={13} className="ml-auto" />}
-              </button>
+              <React.Fragment key={item.key}>
+                <button
+                  onClick={() => setTab(item.key)}
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm text-left transition-colors"
+                  style={{
+                    background: active ? GRADIENT : item.destaque ? C.goldBg : "transparent",
+                    color: active ? "#fff" : item.destaque ? C.gold : C.textMuted,
+                    fontWeight: active || item.destaque ? 700 : 500,
+                    border: !active && item.destaque ? `1px solid rgba(255,195,0,0.35)` : "1px solid transparent",
+                  }}
+                >
+                  <Icon size={15} />
+                  {item.label}
+                  {item.destaque && !active && (
+                    <span
+                      className="ml-auto text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded"
+                      style={{ background: C.gold, color: "#241640" }}
+                    >
+                      consulta
+                    </span>
+                  )}
+                  {active && <ChevronRight size={13} className="ml-auto" />}
+                </button>
+                {item.destaque && <div className="my-1" style={{ borderTop: `1px solid ${C.border}` }} />}
+              </React.Fragment>
             );
           })}
         </nav>
@@ -1452,7 +1582,7 @@ export default function GestaoApp({ token, onLogout }) {
           </div>
         </header>
         <div className="p-8 relative z-10">
-          {tab === "dashboard" && <Dashboard pedidosState={pedidosState} produtos={produtos} />}
+          {tab === "dashboard" && <Dashboard pedidosState={pedidosState} produtos={produtos} onOpenPrecos={() => setTab("precos")} />}
           {tab === "estoque" && <Estoque produtos={produtos} setProdutos={setProdutos} />}
           {tab === "insumos" && <InsumosTab insumos={insumos} setInsumos={setInsumos} />}
           {tab === "composicao" && (
@@ -1474,7 +1604,7 @@ export default function GestaoApp({ token, onLogout }) {
             />
           )}
           {tab === "precos" && <PrecosTab token={token} />}
-          {tab === "vendas" && <Vendas pedidosState={pedidosState} />}
+          {tab === "vendas" && <Vendas pedidosState={pedidosState} setPedidosState={setPedidosState} />}
           {tab === "clientes" && <Clientes pedidosState={pedidosState} />}
           {tab === "custos" && <Custos produtos={produtos} />}
           {tab === "nf" && <NotasFiscais pedidosState={pedidosState} setPedidosState={setPedidosState} />}
