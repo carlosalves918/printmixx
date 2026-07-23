@@ -2090,6 +2090,8 @@ const NAV = [
 export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogout }) {
   const [tab, setTab] = useState("dashboard");
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [saveError, setSaveError] = useState(false);
   const [insumos, setInsumos] = useState(DEFAULT_INSUMOS);
   const [produtosCusteio, setProdutosCusteio] = useState(DEFAULT_PRODUTOS_CUSTEIO);
@@ -2108,6 +2110,7 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
       return;
     }
     (async () => {
+      let hadError = false;
       try {
         const [insumosRes, produtosRes, composicaoRes, precifRes, pedidosRes, estoqueRes, categoriasRes, canaisRes] = await Promise.all([
           supabaseGestao.from("insumos").select("*").eq("tenant_id", tenantId),
@@ -2119,47 +2122,74 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
           supabaseGestao.from("categorias").select("*").eq("tenant_id", tenantId),
           supabaseGestao.from("canais").select("*").eq("tenant_id", tenantId),
         ]);
-        // Importante: usamos "xRes.data" (e não "xRes.data?.length") de propósito.
-        // Se o array vier vazio [], é porque você apagou tudo de verdade no banco —
-        // e o estado local precisa refletir isso. Antes, quando a lista ficava vazia,
-        // o código não atualizava o estado, ele continuava com os dados de exemplo
-        // (os "fictícios"), e o efeito de salvamento logo abaixo gravava esses dados
-        // de exemplo de volta no banco — fazendo parecer que o que você apagou "voltava".
-        if (insumosRes.data)
-          setInsumos(insumosRes.data.map(r => ({ id: r.id, nome: r.nome, unidade: r.unidade, custo: Number(r.custo) })));
-        if (produtosRes.data)
-          setProdutosCusteio(produtosRes.data.map(r => ({ id: r.id, nome: r.nome })));
-        if (composicaoRes.data)
-          setComposicao(composicaoRes.data.map(r => ({ id: r.id, produtoId: r.produto_id, insumoId: r.insumo_id, qtd: Number(r.qtd) })));
-        if (precifRes.data) {
-          const obj = {};
-          precifRes.data.forEach(r => { obj[r.produto_id] = { margem: Number(r.margem), precoPraticado: Number(r.preco_praticado) }; });
-          setPrecificacao(obj);
+
+        // Cada resposta do Supabase pode falhar (cota estourada, rede, RLS, etc.) sem
+        // lançar exceção — ela só vem com "error" preenchido e "data" nulo/vazio.
+        // Antes só checávamos "data", então uma falha silenciosa era indistinguível
+        // de "não tem nada nessa tabela", e o app seguia como se tivesse carregado
+        // com sucesso — liberando o efeito de salvamento logo abaixo, que apaga e
+        // reinsere tudo no banco a partir do estado local. Se o load falhou, o estado
+        // local ainda são os dados de exemplo, e esse salvamento sobrescreve dados
+        // reais do banco com dados fictícios. Por isso agora checamos "error" em
+        // cada resposta: se qualquer uma falhar, NÃO tocamos no estado (deixamos como
+        // está) e marcamos loadError = true, que trava o salvamento automático mais
+        // abaixo até a próxima tentativa de carregamento funcionar.
+        const respostas = [insumosRes, produtosRes, composicaoRes, precifRes, pedidosRes, estoqueRes, categoriasRes, canaisRes];
+        hadError = respostas.some(r => r.error);
+        if (hadError) {
+          respostas.forEach(r => { if (r.error) console.error("Erro ao carregar do Supabase:", r.error); });
+        } else {
+          // Importante: usamos "xRes.data" (e não "xRes.data?.length") de propósito.
+          // Se o array vier vazio [], é porque você apagou tudo de verdade no banco —
+          // e o estado local precisa refletir isso.
+          if (insumosRes.data)
+            setInsumos(insumosRes.data.map(r => ({ id: r.id, nome: r.nome, unidade: r.unidade, custo: Number(r.custo) })));
+          if (produtosRes.data)
+            setProdutosCusteio(produtosRes.data.map(r => ({ id: r.id, nome: r.nome })));
+          if (composicaoRes.data)
+            setComposicao(composicaoRes.data.map(r => ({ id: r.id, produtoId: r.produto_id, insumoId: r.insumo_id, qtd: Number(r.qtd) })));
+          if (precifRes.data) {
+            const obj = {};
+            precifRes.data.forEach(r => { obj[r.produto_id] = { margem: Number(r.margem), precoPraticado: Number(r.preco_praticado) }; });
+            setPrecificacao(obj);
+          }
+          if (pedidosRes.data)
+            setPedidosState(pedidosRes.data.map(r => {
+              let itensLista = [];
+              try { itensLista = r.itens_lista ? JSON.parse(r.itens_lista) : []; } catch { itensLista = []; }
+              return {
+                id: r.id, cliente: r.cliente, telefone: r.telefone || "", endereco: r.endereco || "",
+                canal: r.canal, itens: r.itens, itensLista, total: Number(r.total), status: r.status, data: r.data,
+              };
+            }));
+          if (estoqueRes.data)
+            setProdutos(estoqueRes.data.map(r => ({
+              id: r.id, nome: r.nome, categoria: r.categoria, estoque: Number(r.estoque),
+              minimo: Number(r.minimo), custo: Number(r.custo), preco: Number(r.preco), unidade: r.unidade,
+            })));
+          if (categoriasRes.data)
+            setCategorias(categoriasRes.data.map(r => ({ id: r.id, label: r.label, icon: r.icon, color: r.color })));
+          if (canaisRes.data)
+            setCanais(canaisRes.data.map(r => ({ id: r.id, label: r.label, color: r.color })));
         }
-        if (pedidosRes.data)
-          setPedidosState(pedidosRes.data.map(r => {
-            let itensLista = [];
-            try { itensLista = r.itens_lista ? JSON.parse(r.itens_lista) : []; } catch { itensLista = []; }
-            return {
-              id: r.id, cliente: r.cliente, telefone: r.telefone || "", endereco: r.endereco || "",
-              canal: r.canal, itens: r.itens, itensLista, total: Number(r.total), status: r.status, data: r.data,
-            };
-          }));
-        if (estoqueRes.data)
-          setProdutos(estoqueRes.data.map(r => ({
-            id: r.id, nome: r.nome, categoria: r.categoria, estoque: Number(r.estoque),
-            minimo: Number(r.minimo), custo: Number(r.custo), preco: Number(r.preco), unidade: r.unidade,
-          })));
-        if (categoriasRes.data)
-          setCategorias(categoriasRes.data.map(r => ({ id: r.id, label: r.label, icon: r.icon, color: r.color })));
-        if (canaisRes.data)
-          setCanais(canaisRes.data.map(r => ({ id: r.id, label: r.label, color: r.color })));
       } catch (e) {
         console.error("Erro ao carregar do Supabase:", e);
+        hadError = true;
       }
-      setLoaded(true);
+      setLoadError(hadError);
+      // Só libera o salvamento automático (mais abaixo) quando o carregamento
+      // funcionou de fato. Em caso de erro, "loaded" continua false — o painel
+      // fica em modo leitura, sem risco de sobrescrever o banco com dado errado.
+      setLoaded(!hadError);
     })();
-  }, [tenantId]);
+  }, [tenantId, reloadKey]);
+
+  // Permite tentar carregar de novo sem precisar recarregar a página inteira
+  // (por exemplo, depois de resolver um problema de cota/conexão no Supabase).
+  const tentarCarregarNovamente = () => {
+    setLoadError(false);
+    setReloadKey(k => k + 1);
+  };
 
   // Sincroniza com o Supabase a cada alteração (com pequeno atraso pra não disparar a cada tecla digitada)
   useEffect(() => {
@@ -2311,21 +2341,44 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
             <MessageCircle size={11} color={C.green} /> (81) 98599-2524
           </div>
           <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: `1px solid ${C.border}` }}>
-            <span className="text-[9px] font-semibold" style={{ color: saveError ? C.red : gestaoSupabaseConfigured ? C.green : C.gold }}>
-              {saveError
+            <span className="text-[9px] font-semibold" style={{ color: (saveError || loadError) ? C.red : gestaoSupabaseConfigured ? C.green : C.gold }}>
+              {loadError
+                ? "⚠ erro ao carregar — salvamento pausado"
+                : saveError
                 ? "⚠ erro ao salvar"
                 : !gestaoSupabaseConfigured
                 ? "● modo local (sem banco)"
                 : loaded ? "✓ dados salvos" : "carregando..."}
             </span>
-            <button
-              onClick={() => { if (window.confirm("Restaurar dados de exemplo? Isso apaga suas alterações salvas.")) resetDados(); }}
-              className="text-[9px] font-semibold underline"
-              style={{ color: C.textMuted }}
-            >
-              restaurar exemplo
-            </button>
+            {loadError ? (
+              <button
+                onClick={tentarCarregarNovamente}
+                className="text-[9px] font-semibold underline"
+                style={{ color: C.textMuted }}
+              >
+                tentar de novo
+              </button>
+            ) : (
+              <button
+                onClick={() => { if (window.confirm("Restaurar dados de exemplo? Isso apaga suas alterações salvas.")) resetDados(); }}
+                className="text-[9px] font-semibold underline"
+                style={{ color: C.textMuted }}
+              >
+                restaurar exemplo
+              </button>
+            )}
           </div>
+          {loadError && (
+            <div
+              className="text-[9px] leading-snug mt-1 px-2 py-1.5 rounded"
+              style={{ color: C.red, background: "rgba(220,38,38,0.1)", border: `1px solid ${C.red}` }}
+            >
+              Não consegui carregar os dados do banco (pode ser cota do Supabase
+              estourada). O que aparece na tela agora NÃO está sendo salvo, pra
+              evitar sobrescrever dados reais. Resolva a conexão e clique em
+              "tentar de novo".
+            </div>
+          )}
           <div className="flex items-center justify-between mt-1 pt-2" style={{ borderTop: `1px solid ${C.border}` }}>
             <a
               href="/"
