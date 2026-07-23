@@ -4,6 +4,9 @@ export const siteConfig = {
   whatsappMessage: 'Olá! Quero solicitar um orçamento.',
   instagramHandle: '@printmixx.oficial',
   instagramUrl: 'https://instagram.com/printmixx.oficial',
+  // Nome exibido no cartão do painel interno (/equipe), no modo local.
+  painelAdminNome: 'Carlos Eduardo',
+  painelAdminCargo: 'Administrador',
   address: {
     street: 'Rua João Pessoa, 186, 1º andar',
     neighborhood: 'Centro',

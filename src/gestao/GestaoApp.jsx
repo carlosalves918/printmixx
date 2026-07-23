@@ -1,4 +1,5 @@
 import { supabaseGestao, gestaoSupabaseConfigured } from "./supabaseGestaoClient";
+import { siteConfig } from "../siteConfig";
 import PrecosTab from "./PrecosTab";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
@@ -7,7 +8,7 @@ import {
   CheckCircle2, Clock, XCircle, Store, Trash2, Calculator, PackagePlus,
   FileText, ExternalLink, Square, Zap, Printer, Pencil, Smartphone, PartyPopper,
   Award, ShoppingCart, DollarSign, Instagram, MessageCircle, MapPin, Users, Boxes, Layers, Truck, Headphones, Gift,
-  Tags, LogOut, UserPlus, X
+  Tags, LogOut, UserPlus, X, Download, Upload
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -89,6 +90,8 @@ function parseDataPedido(str) {
 // JSON a qualquer momento e importar depois, quando o Supabase estiver
 // disponível de novo, pra migrar tudo pro banco de uma vez.
 const LOCAL_STORAGE_KEY = "printmixx_gestao_local_v1";
+const LOCAL_LAST_EXPORT_KEY = "printmixx_gestao_ultimo_export";
+const LOCAL_AUTO_REMINDER_KEY = "printmixx_gestao_lembrete_backup_ativo";
 
 function lerDadosLocais() {
   try {
@@ -2122,6 +2125,13 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
   const [reloadKey, setReloadKey] = useState(0);
   const [saveError, setSaveError] = useState(false);
   const [modoLocal, setModoLocal] = useState(false);
+  const [ultimoExportEm, setUltimoExportEm] = useState(() => {
+    try { return window.localStorage.getItem(LOCAL_LAST_EXPORT_KEY); } catch { return null; }
+  });
+  const [lembreteBackupAtivo, setLembreteBackupAtivo] = useState(() => {
+    try { return window.localStorage.getItem(LOCAL_AUTO_REMINDER_KEY) !== "off"; } catch { return true; }
+  });
+  const [mostrarPainelBackups, setMostrarPainelBackups] = useState(false);
   const [insumos, setInsumos] = useState(DEFAULT_INSUMOS);
   const [produtosCusteio, setProdutosCusteio] = useState(DEFAULT_PRODUTOS_CUSTEIO);
   const [composicao, setComposicao] = useState(DEFAULT_COMPOSICAO);
@@ -2325,7 +2335,24 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    const agora = new Date().toISOString();
+    try { window.localStorage.setItem(LOCAL_LAST_EXPORT_KEY, agora); } catch {}
+    setUltimoExportEm(agora);
   };
+
+  // Liga/desliga o lembrete de backup semanal (mostrado no painel "Backups Automáticos").
+  // Não existe backup 100% automático sem servidor — isso é um lembrete ativo que
+  // avisa quando já faz mais de 7 dias desde o último "exportar backup (.json)".
+  const alternarLembreteBackup = () => {
+    const novo = !lembreteBackupAtivo;
+    setLembreteBackupAtivo(novo);
+    try { window.localStorage.setItem(LOCAL_AUTO_REMINDER_KEY, novo ? "on" : "off"); } catch {}
+  };
+
+  const diasDesdeUltimoExport = ultimoExportEm
+    ? Math.floor((Date.now() - new Date(ultimoExportEm).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const backupAtrasado = lembreteBackupAtivo && (diasDesdeUltimoExport === null || diasDesdeUltimoExport >= 7);
 
   // Lê um arquivo .json (exportado antes) e substitui os dados atuais por ele.
   // Funciona tanto pra restaurar um backup local quanto, depois de configurar
@@ -2436,17 +2463,39 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
             );
           })}
         </nav>
-        <div className="px-5 py-4 flex flex-col gap-2" style={{ borderTop: `1px solid ${C.border}` }}>
-          <div className="flex items-center gap-1.5 text-[10px] font-semibold" style={{ color: C.textMuted }}>
-            <MapPin size={11} color={C.gold} /> Protótipo — dados de exemplo
+        <div className="px-4 py-4 flex flex-col gap-2.5" style={{ borderTop: `1px solid ${C.border}` }}>
+          {/* Cartão do usuário */}
+          <div
+            className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl"
+            style={{ background: C.bgAlt || "rgba(255,255,255,0.04)", border: `1px solid ${C.border}` }}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className="flex items-center justify-center rounded-full font-bold shrink-0"
+                style={{ width: 34, height: 34, background: C.gold, color: "#1a1a1a", fontSize: 13 }}
+              >
+                {siteConfig.painelAdminNome.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <div className="text-[12px] font-bold truncate" style={{ color: C.text || "#fff" }}>
+                  {siteConfig.painelAdminNome.toUpperCase()}
+                </div>
+                <div className="text-[10px] font-semibold" style={{ color: C.textMuted }}>
+                  {siteConfig.painelAdminCargo}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={onLogout}
+              className="text-[11px] font-bold shrink-0"
+              style={{ color: C.red }}
+            >
+              Sair
+            </button>
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] font-semibold" style={{ color: C.textMuted }}>
-            <Instagram size={11} color={C.pink} /> @printmixx.oficial
-          </div>
-          <div className="flex items-center gap-1.5 text-[10px] font-semibold" style={{ color: C.textMuted }}>
-            <MessageCircle size={11} color={C.green} /> (81) 98599-2524
-          </div>
-          <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: `1px solid ${C.border}` }}>
+
+          {/* Status de salvamento */}
+          <div className="flex items-center justify-between px-1">
             <span className="text-[9px] font-semibold" style={{ color: (saveError || loadError) ? C.red : gestaoSupabaseConfigured ? C.green : C.gold }}>
               {loadError
                 ? "⚠ erro ao carregar — salvamento pausado"
@@ -2457,11 +2506,7 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
                 : loaded ? "✓ dados salvos" : "carregando..."}
             </span>
             {loadError ? (
-              <button
-                onClick={tentarCarregarNovamente}
-                className="text-[9px] font-semibold underline"
-                style={{ color: C.textMuted }}
-              >
+              <button onClick={tentarCarregarNovamente} className="text-[9px] font-semibold underline" style={{ color: C.textMuted }}>
                 tentar de novo
               </button>
             ) : (
@@ -2475,40 +2520,38 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
             )}
           </div>
           {loadError && (
-            <div
-              className="text-[9px] leading-snug mt-1 px-2 py-1.5 rounded"
-              style={{ color: C.red, background: "rgba(220,38,38,0.1)", border: `1px solid ${C.red}` }}
-            >
+            <div className="text-[9px] leading-snug px-2 py-1.5 rounded" style={{ color: C.red, background: "rgba(220,38,38,0.1)", border: `1px solid ${C.red}` }}>
               Não consegui carregar os dados do banco (pode ser cota do Supabase
               estourada). O que aparece na tela agora NÃO está sendo salvo, pra
               evitar sobrescrever dados reais. Resolva a conexão e clique em
               "tentar de novo".
             </div>
           )}
-          {modoLocal && !loadError && (
-            <div
-              className="text-[9px] leading-snug mt-1 px-2 py-1.5 rounded"
-              style={{ color: C.gold, background: "rgba(217,164,65,0.1)", border: `1px solid ${C.gold}` }}
-            >
-              Sem banco configurado: os dados ficam salvos só neste
-              computador/navegador. Faça backup em JSON de vez em quando —
-              o mesmo arquivo serve pra migrar tudo pro banco depois.
+          {backupAtrasado && modoLocal && !loadError && (
+            <div className="text-[9px] leading-snug px-2 py-1.5 rounded" style={{ color: C.gold, background: "rgba(217,164,65,0.1)", border: `1px solid ${C.gold}` }}>
+              {ultimoExportEm
+                ? `Já fazem ${diasDesdeUltimoExport} dias desde o último backup. Exporta um novo pra não arriscar perder dados.`
+                : "Você ainda não exportou nenhum backup. Recomendado fazer isso agora."}
             </div>
           )}
-          <div className="flex items-center justify-between gap-2 mt-1">
+
+          {/* Botões de ação — bem visíveis */}
+          <div className="flex flex-col gap-2 mt-1">
             <button
               onClick={exportarDadosJson}
-              className="flex-1 text-[9px] font-semibold underline text-left"
-              style={{ color: C.textMuted }}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[12px] font-bold"
+              style={{ background: C.bgAlt || "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.text || "#fff" }}
             >
-              exportar backup (.json)
+              <Download size={15} color={C.gold} />
+              Exportar Backup (JSON)
             </button>
             <button
               onClick={() => fileInputRef.current && fileInputRef.current.click()}
-              className="flex-1 text-[9px] font-semibold underline text-right"
-              style={{ color: C.textMuted }}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[12px] font-bold"
+              style={{ background: C.bgAlt || "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.text || "#fff" }}
             >
-              importar backup (.json)
+              <Upload size={15} color={C.gold} />
+              Importar Backup
             </button>
             <input
               ref={fileInputRef}
@@ -2521,23 +2564,49 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
                 e.target.value = "";
               }}
             />
-          </div>
-          <div className="flex items-center justify-between mt-1 pt-2" style={{ borderTop: `1px solid ${C.border}` }}>
-            <a
-              href="/"
-              className="text-[9px] font-semibold underline"
-              style={{ color: C.textMuted }}
-            >
-              ← voltar ao site
-            </a>
             <button
-              onClick={onLogout}
-              className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide"
-              style={{ color: C.red }}
+              onClick={() => setMostrarPainelBackups(v => !v)}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[12px] font-bold"
+              style={{ background: C.bgAlt || "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.text || "#fff" }}
             >
-              <LogOut size={11} /> sair
+              <Clock size={15} color={C.gold} />
+              Backups Automáticos
+              {backupAtrasado && (
+                <span className="ml-auto rounded-full" style={{ width: 7, height: 7, background: C.red }} />
+              )}
             </button>
+            {mostrarPainelBackups && (
+              <div
+                className="flex flex-col gap-2 px-3 py-2.5 rounded-xl text-[10px] leading-snug"
+                style={{ background: C.bgAlt || "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.textMuted }}
+              >
+                <div>
+                  Sem servidor, não existe backup 100% automático — mas o painel
+                  pode te lembrar de exportar toda semana.
+                </div>
+                <div className="font-semibold" style={{ color: C.text || "#fff" }}>
+                  Último backup: {ultimoExportEm
+                    ? (diasDesdeUltimoExport === 0 ? "hoje" : `há ${diasDesdeUltimoExport} dia${diasDesdeUltimoExport === 1 ? "" : "s"}`)
+                    : "nunca"}
+                </div>
+                <button
+                  onClick={alternarLembreteBackup}
+                  className="flex items-center justify-between px-2.5 py-1.5 rounded-lg font-semibold"
+                  style={{ background: "rgba(255,255,255,0.05)", color: C.text || "#fff" }}
+                >
+                  Lembrete semanal
+                  <span
+                    className="rounded-full"
+                    style={{ width: 8, height: 8, background: lembreteBackupAtivo ? C.green : C.textMuted }}
+                  />
+                </button>
+              </div>
+            )}
           </div>
+
+          <a href="/" className="text-[9px] font-semibold underline mt-1" style={{ color: C.textMuted }}>
+            ← voltar ao site
+          </a>
         </div>
       </aside>
 
