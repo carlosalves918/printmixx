@@ -2069,14 +2069,14 @@ function Clientes({ pedidosState, canais }) {
 // ---------- Shell ----------
 const NAV = [
   { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
-  { key: "precos", label: "Tabela de Preços", icon: Tags, destaque: true },
+  { key: "precos", label: "Tabela de Preços", icon: Tags, destaque: true, badge: "consulta" },
   { key: "cadastros", label: "Cadastros", icon: Store },
   { key: "equipe", label: "Equipe", icon: UserPlus },
   { key: "estoque", label: "Estoque", icon: Package },
   { key: "insumos", label: "Insumos", icon: Boxes },
   { key: "composicao", label: "Composição de Custo", icon: Layers },
   { key: "precificacao", label: "Precificação", icon: Calculator },
-  { key: "vendas", label: "Vendas", icon: ShoppingBag },
+  { key: "vendas", label: "Vendas", icon: ShoppingBag, destaque: true, badge: "principal" },
   { key: "clientes", label: "Clientes", icon: Users },
   { key: "custos", label: "Custos", icon: TrendingUp },
   { key: "nf", label: "Notas Fiscais", icon: Receipt },
@@ -2285,7 +2285,7 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
                       className="ml-auto text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded"
                       style={{ background: C.gold, color: "#241640" }}
                     >
-                      consulta
+                      {item.badge || "destaque"}
                     </span>
                   )}
                   {active && <ChevronRight size={13} className="ml-auto" />}
