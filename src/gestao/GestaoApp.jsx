@@ -1041,8 +1041,13 @@ function Vendas({ pedidosState, setPedidosState, canais, produtos }) {
     setPedidosState(prev => prev.filter(p => p.id !== id));
   };
   const addPedido = () => {
+    // Número sequencial (#00001, #00002...), continuando do maior já existente.
+    const maiorNumero = pedidosState.reduce((max, p) => {
+      const n = parseInt(String(p.id).replace(/\D/g, ""), 10);
+      return Number.isFinite(n) && n > max ? n : max;
+    }, 0);
     const novo = {
-      id: `#${Math.floor(10000 + Math.random() * 89999)}`,
+      id: `#${String(maiorNumero + 1).padStart(5, "0")}`,
       cliente: "Novo cliente",
       telefone: "",
       endereco: "",
