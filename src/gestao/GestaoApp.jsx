@@ -2054,18 +2054,24 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
           supabaseGestao.from("categorias").select("*").eq("tenant_id", tenantId),
           supabaseGestao.from("canais").select("*").eq("tenant_id", tenantId),
         ]);
-        if (insumosRes.data?.length)
+        // Importante: usamos "xRes.data" (e não "xRes.data?.length") de propósito.
+        // Se o array vier vazio [], é porque você apagou tudo de verdade no banco —
+        // e o estado local precisa refletir isso. Antes, quando a lista ficava vazia,
+        // o código não atualizava o estado, ele continuava com os dados de exemplo
+        // (os "fictícios"), e o efeito de salvamento logo abaixo gravava esses dados
+        // de exemplo de volta no banco — fazendo parecer que o que você apagou "voltava".
+        if (insumosRes.data)
           setInsumos(insumosRes.data.map(r => ({ id: r.id, nome: r.nome, unidade: r.unidade, custo: Number(r.custo) })));
-        if (produtosRes.data?.length)
+        if (produtosRes.data)
           setProdutosCusteio(produtosRes.data.map(r => ({ id: r.id, nome: r.nome })));
-        if (composicaoRes.data?.length)
+        if (composicaoRes.data)
           setComposicao(composicaoRes.data.map(r => ({ id: r.id, produtoId: r.produto_id, insumoId: r.insumo_id, qtd: Number(r.qtd) })));
-        if (precifRes.data?.length) {
+        if (precifRes.data) {
           const obj = {};
           precifRes.data.forEach(r => { obj[r.produto_id] = { margem: Number(r.margem), precoPraticado: Number(r.preco_praticado) }; });
           setPrecificacao(obj);
         }
-        if (pedidosRes.data?.length)
+        if (pedidosRes.data)
           setPedidosState(pedidosRes.data.map(r => {
             let itensLista = [];
             try { itensLista = r.itens_lista ? JSON.parse(r.itens_lista) : []; } catch { itensLista = []; }
@@ -2074,14 +2080,14 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
               canal: r.canal, itens: r.itens, itensLista, total: Number(r.total), status: r.status, data: r.data,
             };
           }));
-        if (estoqueRes.data?.length)
+        if (estoqueRes.data)
           setProdutos(estoqueRes.data.map(r => ({
             id: r.id, nome: r.nome, categoria: r.categoria, estoque: Number(r.estoque),
             minimo: Number(r.minimo), custo: Number(r.custo), preco: Number(r.preco), unidade: r.unidade,
           })));
-        if (categoriasRes.data?.length)
+        if (categoriasRes.data)
           setCategorias(categoriasRes.data.map(r => ({ id: r.id, label: r.label, icon: r.icon, color: r.color })));
-        if (canaisRes.data?.length)
+        if (canaisRes.data)
           setCanais(canaisRes.data.map(r => ({ id: r.id, label: r.label, color: r.color })));
       } catch (e) {
         console.error("Erro ao carregar do Supabase:", e);
