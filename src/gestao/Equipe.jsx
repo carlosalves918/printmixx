@@ -231,5 +231,5 @@ export default function Equipe() {
     )
   }
 
-  return <GestaoApp tenantId={tenantId} tenantNome={tenantNome} onLogout={logout} />
+  return <GestaoApp tenantId={tenantId} tenantNome={tenantNome} currentUserId={session.user.id} onLogout={logout} />
 }

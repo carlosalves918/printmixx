@@ -47,9 +47,12 @@ printmixx-unified/
    todos os dados que essa conta grava ficam isolados dessa gráfica: se
    você um dia vender este sistema pra outra gráfica, ela cria a conta dela
    e nunca vê os dados da Print Mixx (nem vice-versa).
-4. Validado, dá acesso ao painel inteiro: Dashboard, Cadastros, Estoque,
-   Insumos, Composição de Custo, Precificação, **Tabela de Preços**, Vendas,
-   Clientes, Custos e Notas Fiscais — tudo dentro do mesmo menu lateral.
+4. Validado, dá acesso ao painel inteiro: Dashboard, Cadastros, **Equipe**,
+   Estoque, Insumos, Composição de Custo, Precificação, **Tabela de Preços**,
+   Vendas, Clientes, Custos e Notas Fiscais — tudo dentro do mesmo menu
+   lateral. A aba **Equipe** é onde o "dono" da gráfica convida colegas
+   (que já tenham criado conta em `/equipe`) e define o papel de cada um
+   (dono, operador, financeiro).
 
 ## Rodando localmente
 
@@ -103,6 +106,9 @@ Diferente de antes, isso deixou de ser opcional: sem o Supabase configurado,
    e crie o nome da sua gráfica quando for pedido. Se você estava migrando
    dados antigos (passo 2), não esqueça o passo manual do final do
    `migration-multitenant.sql`.
+8. Rode também `supabase/migration-equipe.sql` no SQL Editor — habilita a
+   aba **Equipe**, onde o dono da gráfica convida colegas. (Instalação nova
+   com `schema-gestao.sql` já vem com isso incluso, não precisa rodar de novo.)
 
 ## Editando conteúdo da fan page
 

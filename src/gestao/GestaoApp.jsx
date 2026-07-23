@@ -7,7 +7,7 @@ import {
   CheckCircle2, Clock, XCircle, Store, Trash2, Calculator, PackagePlus,
   FileText, ExternalLink, Square, Zap, Printer, Pencil, Smartphone, PartyPopper,
   Award, ShoppingCart, DollarSign, Instagram, MessageCircle, MapPin, Users, Boxes, Layers, Truck, Headphones, Gift,
-  Tags, LogOut
+  Tags, LogOut, UserPlus
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -1103,6 +1103,148 @@ function InsumosTab({ insumos, setInsumos }) {
   );
 }
 
+function EquipeInternaTab({ currentUserId }) {
+  const [membros, setMembros] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [email, setEmail] = useState("");
+  const [papel, setPapel] = useState("operador");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState("");
+  const [inviteOk, setInviteOk] = useState("");
+
+  const carregar = async () => {
+    setLoading(true);
+    setLoadError("");
+    const { data, error } = await supabaseGestao.rpc("listar_membros");
+    if (error) setLoadError(error.message);
+    else setMembros(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { carregar(); }, []);
+
+  const souDono = membros.some(m => m.user_id === currentUserId && m.papel === "dono");
+
+  const convidar = async (e) => {
+    e.preventDefault();
+    setInviteLoading(true);
+    setInviteError("");
+    setInviteOk("");
+    const { error } = await supabaseGestao.rpc("convidar_membro", { p_email: email.trim(), p_papel: papel });
+    if (error) {
+      setInviteError(error.message);
+    } else {
+      setInviteOk(`${email.trim()} agora tem acesso à sua gráfica.`);
+      setEmail("");
+      await carregar();
+    }
+    setInviteLoading(false);
+  };
+
+  const remover = async (userId, emailAlvo) => {
+    if (!window.confirm(`Remover ${emailAlvo} da sua gráfica?`)) return;
+    const { error } = await supabaseGestao.rpc("remover_membro", { p_user_id: userId });
+    if (error) window.alert(error.message);
+    else carregar();
+  };
+
+  return (
+    <div className="flex flex-col gap-8">
+      <GlowCard className="p-4">
+        <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
+          Todo mundo listado aqui tem acesso ao painel inteiro da sua gráfica. Só o "dono"
+          pode convidar ou remover pessoas. Pra convidar alguém, a pessoa precisa já ter
+          criado a própria conta em <strong>/equipe</strong> — depois disso, é só o e-mail dela aqui.
+        </p>
+      </GlowCard>
+
+      {souDono && (
+        <div className="flex flex-col gap-3">
+          <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: C.text, fontFamily: "'Poppins', sans-serif" }}>
+            Convidar alguém
+          </h3>
+          <GlowCard className="p-4">
+            <form onSubmit={convidar} className="flex flex-wrap items-center gap-2">
+              <input
+                type="email"
+                required
+                placeholder="e-mail da pessoa (já com conta em /equipe)"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="flex-1 min-w-[220px] text-sm px-3 py-2 rounded-md outline-none"
+                style={{ border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
+              />
+              <select
+                value={papel}
+                onChange={e => setPapel(e.target.value)}
+                className="text-sm px-2 py-2 rounded-md outline-none"
+                style={{ border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
+              >
+                <option value="operador">Operador</option>
+                <option value="financeiro">Financeiro</option>
+                <option value="dono">Dono</option>
+              </select>
+              <button
+                type="submit"
+                disabled={inviteLoading}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-bold uppercase tracking-wide"
+                style={{ background: GRADIENT, color: "#fff" }}
+              >
+                <UserPlus size={13} /> {inviteLoading ? "Adicionando..." : "Adicionar"}
+              </button>
+            </form>
+            {inviteError && <p className="text-xs mt-2" style={{ color: C.red }}>{inviteError}</p>}
+            {inviteOk && <p className="text-xs mt-2" style={{ color: C.green }}>{inviteOk}</p>}
+          </GlowCard>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-3">
+        <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: C.text, fontFamily: "'Poppins', sans-serif" }}>
+          Quem tem acesso
+        </h3>
+        <GlowCard className="overflow-hidden">
+          {loading ? (
+            <p className="text-xs p-4" style={{ color: C.textMuted }}>Carregando...</p>
+          ) : loadError ? (
+            <p className="text-xs p-4" style={{ color: C.red }}>{loadError}</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ background: C.panelAlt, color: C.textMuted }}>
+                  <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">E-mail</th>
+                  <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Papel</th>
+                  {souDono && <th className="px-4 py-2.5"></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {membros.map(m => (
+                  <tr key={m.user_id} style={{ borderTop: `1px solid ${C.border}` }}>
+                    <td className="px-4 py-2.5">
+                      {m.email} {m.user_id === currentUserId && <span style={{ color: C.textMuted }}>(você)</span>}
+                    </td>
+                    <td className="px-4 py-2.5 uppercase text-xs font-bold" style={{ color: C.purple }}>{m.papel}</td>
+                    {souDono && (
+                      <td className="px-4 py-2.5 text-right">
+                        {m.user_id !== currentUserId && (
+                          <button onClick={() => remover(m.user_id, m.email)} style={{ color: C.red }}>
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </GlowCard>
+      </div>
+    </div>
+  );
+}
+
 function CadastrosTab({ categorias, setCategorias, canais, setCanais, produtos, pedidosState }) {
   const updateCategoria = (id, field, value) =>
     setCategorias(prev => prev.map(c => (c.id === id ? { ...c, [field]: value } : c)));
@@ -1585,6 +1727,7 @@ const NAV = [
   { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
   { key: "precos", label: "Tabela de Preços", icon: Tags, destaque: true },
   { key: "cadastros", label: "Cadastros", icon: Store },
+  { key: "equipe", label: "Equipe", icon: UserPlus },
   { key: "estoque", label: "Estoque", icon: Package },
   { key: "insumos", label: "Insumos", icon: Boxes },
   { key: "composicao", label: "Composição de Custo", icon: Layers },
@@ -1595,7 +1738,7 @@ const NAV = [
   { key: "nf", label: "Notas Fiscais", icon: Receipt },
 ];
 
-export default function GestaoApp({ tenantId, tenantNome, onLogout }) {
+export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogout }) {
   const [tab, setTab] = useState("dashboard");
   const [loaded, setLoaded] = useState(false);
   const [saveError, setSaveError] = useState(false);
@@ -1724,6 +1867,7 @@ export default function GestaoApp({ tenantId, tenantNome, onLogout }) {
   const titleMap = {
     dashboard: "Visão geral",
     cadastros: "Cadastros — categorias e canais de venda",
+    equipe: "Equipe — quem tem acesso à sua gráfica",
     estoque: "Estoque",
     insumos: "Insumos",
     composicao: "Composição de Custo",
@@ -1872,6 +2016,7 @@ export default function GestaoApp({ tenantId, tenantNome, onLogout }) {
               pedidosState={pedidosState}
             />
           )}
+          {tab === "equipe" && <EquipeInternaTab currentUserId={currentUserId} />}
           {tab === "estoque" && <Estoque produtos={produtos} setProdutos={setProdutos} categorias={categorias} />}
           {tab === "insumos" && <InsumosTab insumos={insumos} setInsumos={setInsumos} />}
           {tab === "composicao" && (
