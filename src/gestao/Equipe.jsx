@@ -136,16 +136,18 @@ export default function Equipe() {
   if (checking) return null
 
   if (!gestaoSupabaseConfigured) {
+    // Sem Supabase configurado: entra direto no painel em modo local — sem
+    // login, sem gráfica (tenant) — os dados ficam salvos só neste
+    // navegador/computador (localStorage). Dá pra migrar tudo pro Supabase
+    // depois, exportando um backup em JSON e importando quando o banco
+    // estiver disponível de novo.
     return (
-      <div className="tp-gate">
-        <img src={logo} alt="Print Mixx" className="tp-gate-logo" />
-        <h1>Painel interno</h1>
-        <p className="tp-gate-info">
-          O login do painel agora depende do Supabase configurado (VITE_SUPABASE_URL e
-          VITE_SUPABASE_ANON_KEY). Configure essas variáveis de ambiente pra habilitar o acesso.
-        </p>
-        <a href="/" className="tp-gate-back">← Voltar para o site</a>
-      </div>
+      <GestaoApp
+        tenantId={null}
+        tenantNome="Uso local"
+        currentUserId={null}
+        onLogout={() => { window.location.href = '/' }}
+      />
     )
   }
 

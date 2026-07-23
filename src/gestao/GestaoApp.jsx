@@ -1,6 +1,6 @@
 import { supabaseGestao, gestaoSupabaseConfigured } from "./supabaseGestaoClient";
 import PrecosTab from "./PrecosTab";
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   LayoutGrid, Package, ShoppingBag, Receipt, TrendingUp, AlertTriangle,
   Search, Plus, ChevronRight, ArrowUpRight, ArrowDownRight,
@@ -80,6 +80,34 @@ function parseDataPedido(str) {
   if (partes.length < 2 || partes.some(Number.isNaN)) return null;
   const [dia, mes, ano] = partes;
   return new Date(ano || new Date().getFullYear(), (mes || 1) - 1, dia || 1);
+}
+
+// ---------- Modo local (sem Supabase) ----------
+// Quando o Supabase não está configurado (ou está fora do ar), o painel
+// continua funcionando salvando tudo no localStorage do navegador — só
+// nesse computador, sem sair pra internet. Dá pra exportar esses dados em
+// JSON a qualquer momento e importar depois, quando o Supabase estiver
+// disponível de novo, pra migrar tudo pro banco de uma vez.
+const LOCAL_STORAGE_KEY = "printmixx_gestao_local_v1";
+
+function lerDadosLocais() {
+  try {
+    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    console.error("Erro ao ler dados locais:", e);
+    return null;
+  }
+}
+
+function salvarDadosLocais(dados) {
+  try {
+    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dados));
+    return true;
+  } catch (e) {
+    console.error("Erro ao salvar dados locais:", e);
+    return false;
+  }
 }
 
 // ---------- Mock data ----------
@@ -2093,6 +2121,7 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [saveError, setSaveError] = useState(false);
+  const [modoLocal, setModoLocal] = useState(false);
   const [insumos, setInsumos] = useState(DEFAULT_INSUMOS);
   const [produtosCusteio, setProdutosCusteio] = useState(DEFAULT_PRODUTOS_CUSTEIO);
   const [composicao, setComposicao] = useState(DEFAULT_COMPOSICAO);
@@ -2102,10 +2131,24 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
   const [categorias, setCategorias] = useState(DEFAULT_CATEGORIAS);
   const [canais, setCanais] = useState(DEFAULT_CANAIS);
 
-  // Carrega os dados do Supabase ao abrir o app (só se o painel tiver banco configurado —
-  // sem isso, ele funciona normalmente com os dados de exemplo, sem gravar nada)
+  // Carrega os dados do Supabase ao abrir o app (só se o painel tiver banco configurado).
+  // Sem Supabase configurado, o painel entra em "modo local": carrega o que já
+  // estiver salvo no localStorage desse navegador (se houver) e passa a salvar
+  // tudo ali a partir de agora — funciona offline, só nesse computador.
   useEffect(() => {
     if (!gestaoSupabaseConfigured || !tenantId) {
+      setModoLocal(true);
+      const salvos = lerDadosLocais();
+      if (salvos) {
+        if (salvos.insumos) setInsumos(salvos.insumos);
+        if (salvos.produtosCusteio) setProdutosCusteio(salvos.produtosCusteio);
+        if (salvos.composicao) setComposicao(salvos.composicao);
+        if (salvos.precificacao) setPrecificacao(salvos.precificacao);
+        if (salvos.pedidosState) setPedidosState(salvos.pedidosState);
+        if (salvos.produtos) setProdutos(salvos.produtos);
+        if (salvos.categorias) setCategorias(salvos.categorias);
+        if (salvos.canais) setCanais(salvos.canais);
+      }
       setLoaded(true);
       return;
     }
@@ -2248,6 +2291,69 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
     return () => clearTimeout(timer);
   }, [loaded, tenantId, insumos, produtosCusteio, composicao, precificacao, pedidosState, produtos, categorias, canais]);
 
+  // Em modo local (sem Supabase configurado ou disponível), salva tudo no
+  // localStorage a cada alteração — mesma lógica de atraso, só que gravando
+  // no navegador em vez de mandar pro banco.
+  useEffect(() => {
+    if (!loaded || !modoLocal) return;
+    const timer = setTimeout(() => {
+      salvarDadosLocais({
+        insumos, produtosCusteio, composicao, precificacao,
+        pedidosState, produtos, categorias, canais,
+        salvoEm: new Date().toISOString(),
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [loaded, modoLocal, insumos, produtosCusteio, composicao, precificacao, pedidosState, produtos, categorias, canais]);
+
+  // Baixa um arquivo .json com todos os dados atuais — serve como backup e
+  // também como o arquivo que você vai importar depois pro Supabase, quando
+  // resolver a questão da cota.
+  const exportarDadosJson = () => {
+    const payload = {
+      exportadoEm: new Date().toISOString(),
+      tenantId: tenantId || null,
+      insumos, produtosCusteio, composicao, precificacao,
+      pedidosState, produtos, categorias, canais,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `printmixx-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Lê um arquivo .json (exportado antes) e substitui os dados atuais por ele.
+  // Funciona tanto pra restaurar um backup local quanto, depois de configurar
+  // o Supabase de novo, pra empurrar esses dados pro banco (o efeito de
+  // sincronização acima cuida de gravar assim que o estado muda).
+  const fileInputRef = useRef(null);
+  const importarDadosJson = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const dados = JSON.parse(e.target.result);
+        if (!window.confirm("Importar esse arquivo vai substituir os dados atuais na tela. Continuar?")) return;
+        if (dados.insumos) setInsumos(dados.insumos);
+        if (dados.produtosCusteio) setProdutosCusteio(dados.produtosCusteio);
+        if (dados.composicao) setComposicao(dados.composicao);
+        if (dados.precificacao) setPrecificacao(dados.precificacao);
+        if (dados.pedidosState) setPedidosState(dados.pedidosState);
+        if (dados.produtos) setProdutos(dados.produtos);
+        if (dados.categorias) setCategorias(dados.categorias);
+        if (dados.canais) setCanais(dados.canais);
+      } catch (err) {
+        console.error("Erro ao importar JSON:", err);
+        window.alert("Não consegui ler esse arquivo. Confira se é um JSON exportado por aqui mesmo.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const resetDados = () => {
     setInsumos(DEFAULT_INSUMOS);
     setProdutosCusteio(DEFAULT_PRODUTOS_CUSTEIO);
@@ -2347,7 +2453,7 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
                 : saveError
                 ? "⚠ erro ao salvar"
                 : !gestaoSupabaseConfigured
-                ? "● modo local (sem banco)"
+                ? "● modo local — salvo neste PC"
                 : loaded ? "✓ dados salvos" : "carregando..."}
             </span>
             {loadError ? (
@@ -2379,6 +2485,43 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
               "tentar de novo".
             </div>
           )}
+          {modoLocal && !loadError && (
+            <div
+              className="text-[9px] leading-snug mt-1 px-2 py-1.5 rounded"
+              style={{ color: C.gold, background: "rgba(217,164,65,0.1)", border: `1px solid ${C.gold}` }}
+            >
+              Sem banco configurado: os dados ficam salvos só neste
+              computador/navegador. Faça backup em JSON de vez em quando —
+              o mesmo arquivo serve pra migrar tudo pro banco depois.
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2 mt-1">
+            <button
+              onClick={exportarDadosJson}
+              className="flex-1 text-[9px] font-semibold underline text-left"
+              style={{ color: C.textMuted }}
+            >
+              exportar backup (.json)
+            </button>
+            <button
+              onClick={() => fileInputRef.current && fileInputRef.current.click()}
+              className="flex-1 text-[9px] font-semibold underline text-right"
+              style={{ color: C.textMuted }}
+            >
+              importar backup (.json)
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files && e.target.files[0];
+                if (file) importarDadosJson(file);
+                e.target.value = "";
+              }}
+            />
+          </div>
           <div className="flex items-center justify-between mt-1 pt-2" style={{ borderTop: `1px solid ${C.border}` }}>
             <a
               href="/"
