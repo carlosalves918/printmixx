@@ -5,7 +5,9 @@ Este projeto junta os dois sistemas que existiam separados:
 - a **fan page / site institucional** (o que qualquer visitante vê);
 - o **painel de gestão** (dashboard, estoque, pedidos, precificação e a
   tabela de preços), escondido atrás do ícone de cadeado 🔒 no header, que
-  só abre com o token de acesso da equipe.
+  agora pede login de verdade (e-mail + senha) em vez de um token
+  compartilhado — e cada conta pertence a uma "gráfica" (tenant), pensado
+  pra um dia dar pra vender este mesmo painel pra outras gráficas.
 
 Tudo roda como um único app React (Vite), publicado como um único projeto na
 Vercel.
@@ -26,7 +28,7 @@ printmixx-unified/
 │   ├── assets/                # logo, fotos
 │   ├── components/            # seções da fan page (Header, Hero, Galeria, etc.)
 │   └── gestao/                 # tudo que fica atrás do cadeado
-│       ├── Equipe.jsx           # tela de login (token) + porta de entrada do painel
+│       ├── Equipe.jsx           # login (e-mail/senha) + onboarding da gráfica
 │       ├── GestaoApp.jsx        # dashboard completo (estoque, pedidos, precificação...)
 │       ├── PrecosTab.jsx        # a Tabela de Preços, como uma aba do painel
 │       ├── supabaseGestaoClient.js
@@ -35,13 +37,17 @@ printmixx-unified/
 └── vercel.json
 ```
 
-## Como o cadeado funciona
+## Como o login funciona agora
 
 1. O ícone de cadeado no header leva para `/equipe`.
-2. Lá, pede um **token de acesso** (uma senha só da equipe).
-3. O token é conferido pela função serverless `api/prices.js`, que roda no
-   servidor da Vercel — o token nunca fica exposto no código do site.
-4. Validado uma vez, dá acesso ao painel inteiro: Dashboard, Estoque,
+2. Lá, cada pessoa faz login com **e-mail e senha** (Supabase Auth) — ou
+   cria uma conta nova, se ainda não tiver.
+3. No primeiro acesso, quem ainda não pertence a nenhuma gráfica cria uma
+   (é o "tenant" — pode ser o nome da sua própria gráfica). A partir daí,
+   todos os dados que essa conta grava ficam isolados dessa gráfica: se
+   você um dia vender este sistema pra outra gráfica, ela cria a conta dela
+   e nunca vê os dados da Print Mixx (nem vice-versa).
+4. Validado, dá acesso ao painel inteiro: Dashboard, Cadastros, Estoque,
    Insumos, Composição de Custo, Precificação, **Tabela de Preços**, Vendas,
    Clientes, Custos e Notas Fiscais — tudo dentro do mesmo menu lateral.
 
@@ -58,67 +64,45 @@ Abre em `http://localhost:5173`. O site público funciona sem nenhuma
 configuração extra. Para testar o `/equipe`, configure as variáveis de
 ambiente abaixo primeiro.
 
-## Configurando o cadeado e a Tabela de Preços (obrigatório)
+## Configurando o login e o painel (obrigatório)
 
-A Tabela de Preços (e o próprio login do `/equipe`) depende de um banco
-Supabase e de variáveis de ambiente. Sem isso, `/equipe` carrega mas o login
-sempre dá erro — é esperado.
+Diferente de antes, isso deixou de ser opcional: sem o Supabase configurado,
+`/equipe` nem mostra o formulário de login.
 
 1. Crie uma conta gratuita em [supabase.com](https://supabase.com) → **New
-   project**.
-2. No **SQL Editor**, rode:
-
-   ```sql
-   create table prices (
-     id uuid primary key default gen_random_uuid(),
-     category text not null,
-     item text not null,
-     price text not null default '',
-     notes text default '',
-     updated_at timestamptz not null default now()
-   );
-
-   alter table prices enable row level security;
-   ```
-
-3. Em **Project Settings → API**, copie a **Project URL** e a **service_role
-   key** (a secreta, não a `anon public`).
-4. Escolha um **token de acesso** forte para a equipe (20+ caracteres).
-5. Configure essas 3 variáveis de ambiente (na Vercel: **Settings →
+   project** (ou use um projeto que você já tenha).
+2. No **SQL Editor**:
+   - Se é um projeto **novo**, rode o script `supabase/schema-gestao.sql`
+     inteiro.
+   - Se você **já tinha** o painel rodando com a versão antiga (token único,
+     dados reais salvos), rode `supabase/migration-multitenant.sql` no lugar
+     — ele faz o upgrade preservando tudo que já existe. Leia os comentários
+     no final do arquivo: tem um passo manual pra você virar "dono" da
+     gráfica depois de criar sua conta.
+3. Em **Authentication → Providers → Email**, confira se "Confirm email"
+   está do jeito que você quer: **ligado** exige que a pessoa clique num
+   link enviado por e-mail antes do primeiro login (mais seguro, mas
+   depende do Supabase conseguir mandar e-mail); **desligado** deixa entrar
+   na hora, direto após criar a conta (mais simples pra uso interno/testes).
+4. Em **Project Settings → API**, copie a **Project URL** e a **anon
+   public key**.
+5. Em **Project Settings → API**, copie também a **service_role key** (a
+   secreta — usada só no servidor, nunca no navegador).
+6. Configure essas variáveis de ambiente (na Vercel: **Settings →
    Environment Variables**; localmente: crie um arquivo `.env` a partir de
    `.env.example`):
 
    | Nome | Valor |
    |---|---|
-   | `TEAM_ACCESS_TOKEN` | o token escolhido no passo 4 |
-   | `SUPABASE_URL` | a Project URL |
-   | `SUPABASE_SERVICE_KEY` | a service_role key |
-
-Pronto: `/equipe` → digitar o token → acesso liberado ao painel e à Tabela
-de Preços.
-
-## Configurando o resto do painel (opcional)
-
-Dashboard, Estoque, Insumos, Composição de Custo, Precificação, Vendas,
-Clientes e Notas Fiscais funcionam **sem nenhuma configuração extra** — usam
-dados de exemplo que ficam só na memória do navegador enquanto a aba está
-aberta. Se quiser que esses dados sejam salvos de verdade entre uma visita e
-outra:
-
-1. No mesmo projeto Supabase do passo anterior (ou um novo), rode o script
-   `supabase/schema-gestao.sql` inteiro no **SQL Editor**.
-2. Em **Project Settings → API**, copie a **Project URL** e a **anon
-   public key** (essa é a pública, diferente da service_role usada acima).
-3. Configure mais duas variáveis de ambiente:
-
-   | Nome | Valor |
-   |---|---|
    | `VITE_SUPABASE_URL` | a Project URL |
    | `VITE_SUPABASE_ANON_KEY` | a anon public key |
+   | `SUPABASE_URL` | a mesma Project URL |
+   | `SUPABASE_SERVICE_KEY` | a service_role key |
 
-Sem login extra: quem já passou pelo token do `/equipe` tem acesso a essa
-parte também. Se algum dia quiser um login individual por funcionário nessa
-parte específica, dá pra adicionar depois (Supabase Auth resolve isso).
+7. Acesse `/equipe`, clique em "Ainda não tem conta? Criar uma", cadastre-se
+   e crie o nome da sua gráfica quando for pedido. Se você estava migrando
+   dados antigos (passo 2), não esqueça o passo manual do final do
+   `migration-multitenant.sql`.
 
 ## Editando conteúdo da fan page
 
@@ -140,10 +124,13 @@ parte específica, dá pra adicionar depois (Supabase Auth resolve isso).
 
 ## Sobre segurança
 
-- A **Tabela de Preços** e o **login do `/equipe`** são seguros de verdade:
-  o token só é conferido no servidor (`api/prices.js`), e a chave do banco
-  nunca chega ao navegador do visitante.
-- O restante do painel de gestão (estoque, pedidos, precificação) é uma
-  ferramenta interna de uso único-usuário: qualquer pessoa com o token entra
-  em tudo. Ótimo para uso pessoal/uma equipe pequena de confiança; se um dia
-  precisar de permissões diferentes por pessoa, isso dá pra evoluir depois.
+- O login do `/equipe` é feito pelo Supabase Auth (e-mail + senha) — nada de
+  token compartilhado. A função serverless `api/prices.js` confere o token
+  de sessão de cada usuário e só mostra/edita os preços da gráfica dele.
+- Cada gráfica (tenant) só enxerga os próprios dados: isso é garantido pelo
+  Row Level Security (RLS) do Postgres, não só pelo código do front-end —
+  mesmo que alguém tente burlar a tela, o banco recusa qualquer leitura ou
+  escrita fora do tenant do usuário logado.
+- Dentro de uma mesma gráfica, por enquanto todo mundo que faz parte dela
+  (papel "dono", "operador" ou "financeiro") tem acesso a tudo — dá pra
+  restringir por papel depois, se precisar.

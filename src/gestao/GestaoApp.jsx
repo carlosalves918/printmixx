@@ -1595,7 +1595,7 @@ const NAV = [
   { key: "nf", label: "Notas Fiscais", icon: Receipt },
 ];
 
-export default function GestaoApp({ token, onLogout }) {
+export default function GestaoApp({ tenantId, tenantNome, onLogout }) {
   const [tab, setTab] = useState("dashboard");
   const [loaded, setLoaded] = useState(false);
   const [saveError, setSaveError] = useState(false);
@@ -1611,21 +1611,21 @@ export default function GestaoApp({ token, onLogout }) {
   // Carrega os dados do Supabase ao abrir o app (só se o painel tiver banco configurado —
   // sem isso, ele funciona normalmente com os dados de exemplo, sem gravar nada)
   useEffect(() => {
-    if (!gestaoSupabaseConfigured) {
+    if (!gestaoSupabaseConfigured || !tenantId) {
       setLoaded(true);
       return;
     }
     (async () => {
       try {
         const [insumosRes, produtosRes, composicaoRes, precifRes, pedidosRes, estoqueRes, categoriasRes, canaisRes] = await Promise.all([
-          supabaseGestao.from("insumos").select("*"),
-          supabaseGestao.from("produtos_custeio").select("*"),
-          supabaseGestao.from("composicao").select("*"),
-          supabaseGestao.from("precificacao").select("*"),
-          supabaseGestao.from("pedidos").select("*"),
-          supabaseGestao.from("produtos_estoque").select("*"),
-          supabaseGestao.from("categorias").select("*"),
-          supabaseGestao.from("canais").select("*"),
+          supabaseGestao.from("insumos").select("*").eq("tenant_id", tenantId),
+          supabaseGestao.from("produtos_custeio").select("*").eq("tenant_id", tenantId),
+          supabaseGestao.from("composicao").select("*").eq("tenant_id", tenantId),
+          supabaseGestao.from("precificacao").select("*").eq("tenant_id", tenantId),
+          supabaseGestao.from("pedidos").select("*").eq("tenant_id", tenantId),
+          supabaseGestao.from("produtos_estoque").select("*").eq("tenant_id", tenantId),
+          supabaseGestao.from("categorias").select("*").eq("tenant_id", tenantId),
+          supabaseGestao.from("canais").select("*").eq("tenant_id", tenantId),
         ]);
         if (insumosRes.data?.length)
           setInsumos(insumosRes.data.map(r => ({ id: r.id, nome: r.nome, unidade: r.unidade, custo: Number(r.custo) })));
@@ -1654,52 +1654,52 @@ export default function GestaoApp({ token, onLogout }) {
       }
       setLoaded(true);
     })();
-  }, []);
+  }, [tenantId]);
 
   // Sincroniza com o Supabase a cada alteração (com pequeno atraso pra não disparar a cada tecla digitada)
   useEffect(() => {
-    if (!loaded || !gestaoSupabaseConfigured) return;
+    if (!loaded || !gestaoSupabaseConfigured || !tenantId) return;
     const timer = setTimeout(async () => {
       try {
-        // apaga tudo (tabelas filhas primeiro, por causa das foreign keys)
-        await supabaseGestao.from("composicao").delete().neq("id", "");
-        await supabaseGestao.from("precificacao").delete().neq("produto_id", "");
-        await supabaseGestao.from("produtos_custeio").delete().neq("id", "");
-        await supabaseGestao.from("insumos").delete().neq("id", "");
-        await supabaseGestao.from("pedidos").delete().neq("id", "");
-        await supabaseGestao.from("produtos_estoque").delete().neq("id", "");
-        await supabaseGestao.from("categorias").delete().neq("id", "");
-        await supabaseGestao.from("canais").delete().neq("id", "");
+        // apaga tudo desse tenant (tabelas filhas primeiro, por causa das foreign keys)
+        await supabaseGestao.from("composicao").delete().eq("tenant_id", tenantId);
+        await supabaseGestao.from("precificacao").delete().eq("tenant_id", tenantId);
+        await supabaseGestao.from("produtos_custeio").delete().eq("tenant_id", tenantId);
+        await supabaseGestao.from("insumos").delete().eq("tenant_id", tenantId);
+        await supabaseGestao.from("pedidos").delete().eq("tenant_id", tenantId);
+        await supabaseGestao.from("produtos_estoque").delete().eq("tenant_id", tenantId);
+        await supabaseGestao.from("categorias").delete().eq("tenant_id", tenantId);
+        await supabaseGestao.from("canais").delete().eq("tenant_id", tenantId);
 
-        // reinsere o estado atual
+        // reinsere o estado atual, já marcado com o tenant_id
         if (insumos.length)
-          await supabaseGestao.from("insumos").insert(insumos.map(i => ({ id: i.id, nome: i.nome, unidade: i.unidade, custo: i.custo })));
+          await supabaseGestao.from("insumos").insert(insumos.map(i => ({ id: i.id, tenant_id: tenantId, nome: i.nome, unidade: i.unidade, custo: i.custo })));
         if (produtosCusteio.length)
-          await supabaseGestao.from("produtos_custeio").insert(produtosCusteio.map(p => ({ id: p.id, nome: p.nome })));
+          await supabaseGestao.from("produtos_custeio").insert(produtosCusteio.map(p => ({ id: p.id, tenant_id: tenantId, nome: p.nome })));
         if (composicao.length)
-          await supabaseGestao.from("composicao").insert(composicao.map(c => ({ id: c.id, produto_id: c.produtoId, insumo_id: c.insumoId, qtd: c.qtd })));
+          await supabaseGestao.from("composicao").insert(composicao.map(c => ({ id: c.id, tenant_id: tenantId, produto_id: c.produtoId, insumo_id: c.insumoId, qtd: c.qtd })));
         const precifRows = Object.entries(precificacao).map(([produtoId, v]) => ({
-          produto_id: produtoId, margem: v.margem, preco_praticado: v.precoPraticado,
+          produto_id: produtoId, tenant_id: tenantId, margem: v.margem, preco_praticado: v.precoPraticado,
         }));
         if (precifRows.length) await supabaseGestao.from("precificacao").insert(precifRows);
         if (pedidosState.length)
           await supabaseGestao.from("pedidos").insert(
-            pedidosState.map(p => ({ id: p.id, cliente: p.cliente, canal: p.canal, itens: p.itens, total: p.total, status: p.status, data: p.data }))
+            pedidosState.map(p => ({ id: p.id, tenant_id: tenantId, cliente: p.cliente, canal: p.canal, itens: p.itens, total: p.total, status: p.status, data: p.data }))
           );
         if (produtos.length)
           await supabaseGestao.from("produtos_estoque").insert(
             produtos.map(p => ({
-              id: p.id, nome: p.nome, categoria: p.categoria, estoque: p.estoque,
+              id: p.id, tenant_id: tenantId, nome: p.nome, categoria: p.categoria, estoque: p.estoque,
               minimo: p.minimo, custo: p.custo, preco: p.preco, unidade: p.unidade,
             }))
           );
         if (categorias.length)
           await supabaseGestao.from("categorias").insert(
-            categorias.map(c => ({ id: c.id, label: c.label, icon: c.icon, color: c.color }))
+            categorias.map(c => ({ id: c.id, tenant_id: tenantId, label: c.label, icon: c.icon, color: c.color }))
           );
         if (canais.length)
           await supabaseGestao.from("canais").insert(
-            canais.map(c => ({ id: c.id, label: c.label, color: c.color }))
+            canais.map(c => ({ id: c.id, tenant_id: tenantId, label: c.label, color: c.color }))
           );
         setSaveError(false);
       } catch (e) {
@@ -1708,7 +1708,7 @@ export default function GestaoApp({ token, onLogout }) {
       }
     }, 700);
     return () => clearTimeout(timer);
-  }, [loaded, insumos, produtosCusteio, composicao, precificacao, pedidosState, produtos, categorias, canais]);
+  }, [loaded, tenantId, insumos, produtosCusteio, composicao, precificacao, pedidosState, produtos, categorias, canais]);
 
   const resetDados = () => {
     setInsumos(DEFAULT_INSUMOS);
@@ -1750,9 +1750,11 @@ export default function GestaoApp({ token, onLogout }) {
               className="text-sm font-black tracking-wide uppercase"
               style={{ fontFamily: "'Poppins', sans-serif", backgroundImage: GRADIENT, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
             >
-              PRINT MIXX
+              {(tenantNome || "PRINT MIXX").toUpperCase()}
             </div>
-            <div className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: C.textMuted }}>Papelaria · Gráfica · Festas</div>
+            <div className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: C.textMuted }}>
+              {tenantNome?.toLowerCase().includes("print mixx") ? "Papelaria · Gráfica · Festas" : "Painel de gestão"}
+            </div>
           </div>
           </div>
         </div>
@@ -1890,7 +1892,7 @@ export default function GestaoApp({ token, onLogout }) {
               setPrecificacao={setPrecificacao}
             />
           )}
-          {tab === "precos" && <PrecosTab token={token} categorias={categorias} />}
+          {tab === "precos" && <PrecosTab tenantId={tenantId} categorias={categorias} />}
           {tab === "vendas" && <Vendas pedidosState={pedidosState} setPedidosState={setPedidosState} canais={canais} />}
           {tab === "clientes" && <Clientes pedidosState={pedidosState} canais={canais} />}
           {tab === "custos" && <Custos produtos={produtos} />}

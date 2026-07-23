@@ -1,14 +1,12 @@
 // Função serverless da Vercel — roda no servidor, nunca no navegador.
-// É aqui (e só aqui) que o token da equipe e a chave do banco de dados ficam
-// guardados, lidos das variáveis de ambiente da Vercel. Nada disso entra no
-// código que é enviado para o navegador do visitante do site.
+// Agora a autenticação é a mesma do resto do painel: cada usuário loga com
+// e-mail/senha (Supabase Auth) e essa função confere o token de sessão dele,
+// descobre a qual gráfica (tenant) ele pertence, e só deixa ver/editar os
+// preços dessa gráfica.
 //
 // Variáveis de ambiente que precisam existir no projeto da Vercel:
-//   TEAM_ACCESS_TOKEN     -> o "token" que a equipe digita para entrar em /equipe
-//   SUPABASE_URL          -> URL do projeto Supabase (ex: https://xxxx.supabase.co)
+//   SUPABASE_URL          -> URL do projeto Supabase (mesmo projeto do login)
 //   SUPABASE_SERVICE_KEY  -> a service_role key do Supabase (NUNCA a anon key aqui)
-//
-// Ver SETUP-PRECOS.md na raiz do projeto para o passo a passo completo.
 
 import { createClient } from '@supabase/supabase-js'
 
@@ -18,25 +16,41 @@ function getSupabase() {
   })
 }
 
-function checkToken(req) {
+// Confere o token de sessão do usuário e devolve o tenant_id da gráfica dele
+// (ou null se o token for inválido ou o usuário não pertencer a nenhuma gráfica).
+async function getTenantId(supabase, req) {
   const auth = req.headers.authorization || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
-  return Boolean(process.env.TEAM_ACCESS_TOKEN) && token === process.env.TEAM_ACCESS_TOKEN
+  const accessToken = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  if (!accessToken) return null
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(accessToken)
+  if (userError || !userData?.user) return null
+
+  const { data: membership } = await supabase
+    .from('tenant_users')
+    .select('tenant_id')
+    .eq('user_id', userData.user.id)
+    .limit(1)
+    .maybeSingle()
+
+  return membership?.tenant_id || null
 }
 
 export default async function handler(req, res) {
-  if (!checkToken(req)) {
-    res.status(401).json({ error: 'Token inválido.' })
+  const supabase = getSupabase()
+  const tenantId = await getTenantId(supabase, req)
+
+  if (!tenantId) {
+    res.status(401).json({ error: 'Sessão inválida ou sem gráfica associada.' })
     return
   }
-
-  const supabase = getSupabase()
 
   try {
     if (req.method === 'GET') {
       const { data, error } = await supabase
         .from('prices')
         .select('*')
+        .eq('tenant_id', tenantId)
         .order('category', { ascending: true })
         .order('item', { ascending: true })
       if (error) throw error
@@ -51,10 +65,10 @@ export default async function handler(req, res) {
         res.status(400).json({ error: 'Categoria e item são obrigatórios.' })
         return
       }
-      const row = { category, item, price: price || '', notes: notes || '' }
+      const row = { category, item, price: price || '', notes: notes || '', tenant_id: tenantId }
       let result
       if (id) {
-        result = await supabase.from('prices').update(row).eq('id', id).select().single()
+        result = await supabase.from('prices').update(row).eq('id', id).eq('tenant_id', tenantId).select().single()
       } else {
         result = await supabase.from('prices').insert(row).select().single()
       }
@@ -69,7 +83,7 @@ export default async function handler(req, res) {
         res.status(400).json({ error: 'id é obrigatório.' })
         return
       }
-      const { error } = await supabase.from('prices').delete().eq('id', id)
+      const { error } = await supabase.from('prices').delete().eq('id', id).eq('tenant_id', tenantId)
       if (error) throw error
       res.status(200).json({ ok: true })
       return

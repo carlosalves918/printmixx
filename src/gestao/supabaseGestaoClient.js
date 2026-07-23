@@ -1,14 +1,14 @@
-// Cliente Supabase do painel de gestão (estoque, insumos, pedidos, precificação).
-// É independente do banco de preços públicos (/api/prices), que já tem seu próprio
-// backend seguro. Este aqui é opcional: se as variáveis de ambiente abaixo não
-// estiverem configuradas, o painel simplesmente funciona só com os dados de
-// exemplo, sem gravar nada — nada quebra.
+// Cliente Supabase do painel de gestão (estoque, insumos, pedidos, precificação)
+// e também do login da equipe (Supabase Auth). Diferente de antes, essas
+// variáveis deixaram de ser opcionais: sem elas, ninguém consegue logar em
+// /equipe, porque é daqui que vem tanto a autenticação quanto os dados.
 //
 // Variáveis de ambiente (Vite), configure na Vercel/local .env:
 //   VITE_SUPABASE_URL
 //   VITE_SUPABASE_ANON_KEY
 //
-// Ver supabase/schema.sql (pasta gestao-schema/) para criar as tabelas.
+// Ver supabase/schema-gestao.sql (instalação nova) ou
+// supabase/migration-multitenant.sql (upgrade de um banco já existente).
 
 import { createClient } from '@supabase/supabase-js'
 

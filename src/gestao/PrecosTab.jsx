@@ -1,11 +1,20 @@
 import { useEffect, useState } from 'react'
+import { supabaseGestao } from './supabaseGestaoClient'
 
-async function apiCall(token, method, body, id) {
+async function getAccessToken() {
+  const { data } = await supabaseGestao.auth.getSession()
+  const token = data?.session?.access_token
+  if (!token) throw new Error('Sessão expirada. Faça login novamente.')
+  return token
+}
+
+async function apiCall(method, body, id) {
+  const accessToken = await getAccessToken()
   const url = id ? `/api/prices?id=${encodeURIComponent(id)}` : '/api/prices'
   const res = await fetch(url, {
     method,
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${accessToken}`,
       ...(body ? { 'Content-Type': 'application/json' } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -15,7 +24,7 @@ async function apiCall(token, method, body, id) {
   return data
 }
 
-function EditableRow({ row, token, categorias, onSaved, onDeleted }) {
+function EditableRow({ row, categorias, onSaved, onDeleted }) {
   const [draft, setDraft] = useState(row)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -25,7 +34,7 @@ function EditableRow({ row, token, categorias, onSaved, onDeleted }) {
     setSaving(true)
     setError('')
     try {
-      const { item } = await apiCall(token, 'POST', draft, draft.id)
+      const { item } = await apiCall('POST', draft, draft.id)
       onSaved(item)
     } catch (e) {
       setError(e.message)
@@ -39,7 +48,7 @@ function EditableRow({ row, token, categorias, onSaved, onDeleted }) {
     setSaving(true)
     setError('')
     try {
-      await apiCall(token, 'DELETE', null, row.id)
+      await apiCall('DELETE', null, row.id)
       onDeleted(row.id)
     } catch (e) {
       setError(e.message)
@@ -85,7 +94,7 @@ function EditableRow({ row, token, categorias, onSaved, onDeleted }) {
   )
 }
 
-function NewRow({ token, categorias, onCreated }) {
+function NewRow({ categorias, onCreated }) {
   const empty = { category: categorias[0]?.label || '', item: '', price: '', notes: '' }
   const [draft, setDraft] = useState(empty)
   const [saving, setSaving] = useState(false)
@@ -99,7 +108,7 @@ function NewRow({ token, categorias, onCreated }) {
     setSaving(true)
     setError('')
     try {
-      const { item } = await apiCall(token, 'POST', draft)
+      const { item } = await apiCall('POST', draft)
       onCreated(item)
       setDraft(empty)
     } catch (e) {
@@ -142,10 +151,11 @@ function NewRow({ token, categorias, onCreated }) {
   )
 }
 
-// Aba "Tabela de Preços" dentro do painel de gestão. Usa o mesmo token de acesso
-// da equipe (já validado na tela de login do painel) para falar com a função
-// serverless /api/prices, que é quem realmente confere o token e fala com o banco.
-export default function PrecosTab({ token, categorias = [] }) {
+// Aba "Tabela de Preços" dentro do painel de gestão. Usa a mesma sessão de
+// login (Supabase Auth) do resto do painel para falar com a função serverless
+// /api/prices, que confere o token de sessão e descobre a gráfica (tenant) do
+// usuário antes de mostrar ou editar qualquer preço.
+export default function PrecosTab({ tenantId, categorias = [] }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -154,7 +164,7 @@ export default function PrecosTab({ token, categorias = [] }) {
     let active = true
     setLoading(true)
     setError('')
-    apiCall(token, 'GET')
+    apiCall('GET')
       .then(({ items }) => {
         if (active) setRows(items)
       })
@@ -167,7 +177,7 @@ export default function PrecosTab({ token, categorias = [] }) {
     return () => {
       active = false
     }
-  }, [token])
+  }, [tenantId])
 
   return (
     <div className="tp-wrap tp-wrap-embedded">
@@ -194,13 +204,12 @@ export default function PrecosTab({ token, categorias = [] }) {
               <EditableRow
                 key={row.id}
                 row={row}
-                token={token}
                 categorias={categorias}
                 onSaved={(updated) => setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))}
                 onDeleted={(id) => setRows((prev) => prev.filter((r) => r.id !== id))}
               />
             ))}
-            <NewRow token={token} categorias={categorias} onCreated={(created) => setRows((prev) => [...prev, created])} />
+            <NewRow categorias={categorias} onCreated={(created) => setRows((prev) => [...prev, created])} />
           </tbody>
         </table>
       )}

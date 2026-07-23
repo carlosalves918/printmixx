@@ -724,6 +724,9 @@ a:focus-visible, button:focus-visible{
 }
 .tp-gate-error{color:var(--magenta); font-size:13.5px; font-weight:600;}
 .tp-gate-back{color:var(--ink-dim); font-size:13.5px; margin-top:10px; text-decoration:underline;}
+.tp-gate form.tp-gate-form-stack{flex-direction:column; align-items:stretch; width:100%; max-width:320px;}
+.tp-gate-toggle{background:none; border:none; color:var(--ink-dim); font-size:13.5px; text-decoration:underline; cursor:pointer; margin-top:4px;}
+.tp-gate-info{color:var(--ink-dim); font-size:13.5px; max-width:320px;}
 
 .tp-wrap{min-height:100vh; background:var(--bg); color:var(--ink); padding:28px 24px 60px;}
 .tp-topbar{
