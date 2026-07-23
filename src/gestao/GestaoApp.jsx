@@ -7,7 +7,7 @@ import {
   CheckCircle2, Clock, XCircle, Store, Trash2, Calculator, PackagePlus,
   FileText, ExternalLink, Square, Zap, Printer, Pencil, Smartphone, PartyPopper,
   Award, ShoppingCart, DollarSign, Instagram, MessageCircle, MapPin, Users, Boxes, Layers, Truck, Headphones, Gift,
-  Tags, LogOut, UserPlus
+  Tags, LogOut, UserPlus, X
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -709,12 +709,270 @@ function Estoque({ produtos, setProdutos, categorias }) {
   );
 }
 
-function Vendas({ pedidosState, setPedidosState, canais }) {
+// Monta uma página HTML formatada pro pedido e abre a caixa de impressão do
+// navegador (o usuário escolhe "salvar como PDF" ou mandar pra impressora).
+function gerarPDFPedido(pedido, canais) {
+  const canalLabel = findCanal(canais, pedido.canal).label;
+  const itens = pedido.itensLista || [];
+  const total = itens.length
+    ? itens.reduce((s, it) => s + (Number(it.valorUnitario) || 0) * (Number(it.quantidade) || 0), 0)
+    : Number(pedido.total) || 0;
+
+  const linhas = itens.length
+    ? itens.map(it => `
+        <tr>
+          <td>${it.nome || ""}</td>
+          <td style="text-align:center">${it.unidade || ""}</td>
+          <td style="text-align:right">R$ ${(Number(it.valorUnitario) || 0).toFixed(2)}</td>
+          <td style="text-align:center">${it.quantidade || 0}</td>
+          <td style="text-align:right">R$ ${((Number(it.valorUnitario) || 0) * (Number(it.quantidade) || 0)).toFixed(2)}</td>
+        </tr>`).join("")
+    : `<tr><td colspan="5" style="text-align:center;color:#888">${pedido.itens || "Sem itens detalhados"}</td></tr>`;
+
+  const html = `
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Pedido ${pedido.id} — Print Mixx</title>
+        <style>
+          * { box-sizing: border-box; }
+          body { font-family: Arial, Helvetica, sans-serif; padding: 32px; color: #1a1a1a; }
+          h1 { font-size: 20px; margin: 0 0 2px; }
+          .muted { color: #666; font-size: 12px; margin: 0 0 16px; }
+          .cliente { margin: 16px 0; font-size: 13px; line-height: 1.6; }
+          .cliente strong { display: inline-block; width: 90px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+          th, td { border: 1px solid #ccc; padding: 7px 10px; font-size: 13px; }
+          th { background: #f2f2f2; text-align: left; }
+          .total-row td { border: none; padding-top: 14px; font-size: 16px; font-weight: bold; text-align: right; }
+          hr { border: none; border-top: 1px solid #ddd; margin: 12px 0; }
+        </style>
+      </head>
+      <body>
+        <h1>Print Mixx — Pedido ${pedido.id}</h1>
+        <p class="muted">Data: ${pedido.data || "-"} &nbsp;·&nbsp; Canal: ${canalLabel}</p>
+        <hr />
+        <div class="cliente">
+          <div><strong>Cliente:</strong> ${pedido.cliente || "-"}</div>
+          <div><strong>Telefone:</strong> ${pedido.telefone || "-"}</div>
+          <div><strong>Endereço:</strong> ${pedido.endereco || "-"}</div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Item</th><th style="text-align:center">Unidade</th><th style="text-align:right">Valor unit.</th><th style="text-align:center">Qtd</th><th style="text-align:right">Total</th></tr>
+          </thead>
+          <tbody>${linhas}</tbody>
+          <tfoot>
+            <tr class="total-row"><td colspan="5">Total do pedido: R$ ${total.toFixed(2)}</td></tr>
+          </tfoot>
+        </table>
+      </body>
+    </html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) {
+    window.alert("O navegador bloqueou a abertura da janela de impressão. Permita pop-ups pra esse site e tente de novo.");
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 250);
+}
+
+// Modal de detalhe do pedido: dados do cliente + itens puxados do catálogo
+// (Estoque), com soma automática, e o botão de gerar PDF.
+function PedidoDetalheModal({ pedido, produtos, canais, onClose, onChange }) {
+  const itensLista = pedido.itensLista || [];
+
+  const totalGeral = useMemo(
+    () => itensLista.reduce((s, it) => s + (Number(it.valorUnitario) || 0) * (Number(it.quantidade) || 0), 0),
+    [itensLista]
+  );
+
+  useEffect(() => {
+    if (itensLista.length && Number(pedido.total) !== totalGeral) {
+      onChange({ ...pedido, total: totalGeral });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalGeral]);
+
+  const addItem = () => {
+    const produtoPadrao = produtos[0];
+    const novoItem = {
+      id: `item-${Date.now()}`,
+      produtoId: produtoPadrao?.id || "",
+      nome: produtoPadrao?.nome || "",
+      unidade: produtoPadrao?.unidade || "un",
+      valorUnitario: produtoPadrao?.preco || 0,
+      quantidade: 1,
+    };
+    onChange({ ...pedido, itensLista: [...itensLista, novoItem] });
+  };
+
+  const updateItem = (itemId, patch) =>
+    onChange({ ...pedido, itensLista: itensLista.map(it => (it.id === itemId ? { ...it, ...patch } : it)) });
+
+  const removeItem = (itemId) =>
+    onChange({ ...pedido, itensLista: itensLista.filter(it => it.id !== itemId) });
+
+  const handleProdutoChange = (itemId, produtoId) => {
+    const prod = produtos.find(p => p.id === produtoId);
+    updateItem(itemId, {
+      produtoId,
+      nome: prod?.nome || "",
+      unidade: prod?.unidade || "un",
+      valorUnitario: prod?.preco ?? 0,
+    });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.6)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl p-6"
+        style={{ background: C.panel, border: `1px solid ${C.border}` }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-extrabold" style={{ color: C.text, fontFamily: "'Poppins', sans-serif" }}>
+            Pedido {pedido.id}
+          </h3>
+          <button onClick={onClose} style={{ color: C.textMuted }}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+          <div>
+            <label className="text-[11px] uppercase font-semibold" style={{ color: C.textMuted }}>Nome do cliente</label>
+            <input
+              value={pedido.cliente}
+              onChange={e => onChange({ ...pedido, cliente: e.target.value })}
+              className="w-full mt-1 text-sm px-3 py-2 rounded-md outline-none"
+              style={{ border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
+            />
+          </div>
+          <div>
+            <label className="text-[11px] uppercase font-semibold" style={{ color: C.textMuted }}>Telefone</label>
+            <input
+              value={pedido.telefone || ""}
+              placeholder="(00) 00000-0000"
+              onChange={e => onChange({ ...pedido, telefone: e.target.value })}
+              className="w-full mt-1 text-sm px-3 py-2 rounded-md outline-none"
+              style={{ border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
+            />
+          </div>
+          <div>
+            <label className="text-[11px] uppercase font-semibold" style={{ color: C.textMuted }}>Endereço</label>
+            <input
+              value={pedido.endereco || ""}
+              placeholder="Rua, número, bairro, cidade"
+              onChange={e => onChange({ ...pedido, endereco: e.target.value })}
+              className="w-full mt-1 text-sm px-3 py-2 rounded-md outline-none"
+              style={{ border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-sm font-bold uppercase tracking-wide" style={{ color: C.text }}>Itens do pedido</h4>
+          <GradButton onClick={addItem}><Plus size={14} /> Item</GradButton>
+        </div>
+
+        <GlowCard className="overflow-hidden mb-4">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ background: C.panelAlt, color: C.textMuted }}>
+                <th className="text-left font-semibold px-3 py-2 text-[11px] uppercase tracking-wider">Produto</th>
+                <th className="text-center font-semibold px-3 py-2 text-[11px] uppercase tracking-wider">Unidade</th>
+                <th className="text-right font-semibold px-3 py-2 text-[11px] uppercase tracking-wider">Valor unit.</th>
+                <th className="text-center font-semibold px-3 py-2 text-[11px] uppercase tracking-wider">Qtd</th>
+                <th className="text-right font-semibold px-3 py-2 text-[11px] uppercase tracking-wider">Total</th>
+                <th className="px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {itensLista.map(it => (
+                <tr key={it.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                  <td className="px-3 py-2">
+                    <select
+                      value={it.produtoId}
+                      onChange={e => handleProdutoChange(it.id, e.target.value)}
+                      className="w-full text-sm px-2 py-1.5 rounded-md outline-none"
+                      style={{ border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
+                    >
+                      <option value="">Selecione...</option>
+                      {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-3 py-2 text-center" style={{ color: C.textMuted }}>{it.unidade}</td>
+                  <td className="px-3 py-2 text-right">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={it.valorUnitario}
+                      onChange={e => updateItem(it.id, { valorUnitario: parseFloat(e.target.value) || 0 })}
+                      className="w-24 text-sm px-2 py-1.5 rounded-md outline-none text-right font-mono"
+                      style={{ border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    <input
+                      type="number"
+                      step="1"
+                      min="1"
+                      value={it.quantidade}
+                      onChange={e => updateItem(it.id, { quantidade: parseFloat(e.target.value) || 0 })}
+                      className="w-16 text-sm px-2 py-1.5 rounded-md outline-none text-center font-mono"
+                      style={{ border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono font-bold" style={{ color: C.text }}>
+                    R$ {((Number(it.valorUnitario) || 0) * (Number(it.quantidade) || 0)).toFixed(2)}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <button onClick={() => removeItem(it.id)} style={{ color: C.red }}>
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {itensLista.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-3 py-4 text-center text-xs" style={{ color: C.textMuted }}>
+                    Nenhum item ainda — clique em "Item" pra puxar do seu catálogo (Estoque).
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </GlowCard>
+
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="text-lg font-extrabold" style={{ color: C.text }}>
+            Total: <span style={{ color: C.orange }}>R$ {totalGeral.toFixed(2)}</span>
+          </div>
+          <GradButton onClick={() => gerarPDFPedido(pedido, canais)}>
+            <Printer size={14} /> Gerar PDF
+          </GradButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Vendas({ pedidosState, setPedidosState, canais, produtos }) {
   const statusOptions = [
     { value: "aguardando_nf", label: "Aguardando NF" },
     { value: "emitida", label: "NF emitida" },
     { value: "erro", label: "Erro emissão" },
   ];
+
+  const [pedidoAbertoId, setPedidoAbertoId] = useState(null);
 
   const updatePedido = (id, field, value) =>
     setPedidosState(prev => prev.map(p => (p.id === id ? { ...p, [field]: value } : p)));
@@ -726,14 +984,20 @@ function Vendas({ pedidosState, setPedidosState, canais }) {
     const novo = {
       id: `#${Math.floor(10000 + Math.random() * 89999)}`,
       cliente: "Novo cliente",
+      telefone: "",
+      endereco: "",
       canal: canais[0]?.id || "",
       itens: "",
+      itensLista: [],
       total: 0,
       status: "aguardando_nf",
       data: new Date().toLocaleDateString("pt-BR") + " " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
     };
     setPedidosState(prev => [novo, ...prev]);
+    setPedidoAbertoId(novo.id);
   };
+
+  const pedidoAberto = pedidosState.find(p => p.id === pedidoAbertoId) || null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -758,6 +1022,7 @@ function Vendas({ pedidosState, setPedidosState, canais }) {
               <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Itens</th>
               <th className="text-right font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Total</th>
               <th className="text-left font-semibold px-4 py-2.5 text-[11px] uppercase tracking-wider">Nota Fiscal</th>
+              <th className="px-4 py-2.5"></th>
               <th className="px-4 py-2.5"></th>
             </tr>
           </thead>
@@ -828,6 +1093,15 @@ function Vendas({ pedidosState, setPedidosState, canais }) {
                   </select>
                 </td>
                 <td className="px-4 py-2 text-right">
+                  <button
+                    onClick={() => setPedidoAbertoId(p.id)}
+                    className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md whitespace-nowrap"
+                    style={{ color: C.purple, background: `${C.purple}22`, border: `1px solid ${C.purple}55` }}
+                  >
+                    Detalhes / PDF
+                  </button>
+                </td>
+                <td className="px-4 py-2 text-right">
                   <button onClick={() => removePedido(p.id)} style={{ color: C.red }}>
                     <Trash2 size={14} />
                   </button>
@@ -837,6 +1111,16 @@ function Vendas({ pedidosState, setPedidosState, canais }) {
           </tbody>
         </table>
       </GlowCard>
+
+      {pedidoAberto && (
+        <PedidoDetalheModal
+          pedido={pedidoAberto}
+          produtos={produtos}
+          canais={canais}
+          onClose={() => setPedidoAbertoId(null)}
+          onChange={(atualizado) => setPedidosState(prev => prev.map(x => (x.id === atualizado.id ? atualizado : x)))}
+        />
+      )}
     </div>
   );
 }
@@ -1782,7 +2066,14 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
           setPrecificacao(obj);
         }
         if (pedidosRes.data?.length)
-          setPedidosState(pedidosRes.data.map(r => ({ id: r.id, cliente: r.cliente, canal: r.canal, itens: r.itens, total: Number(r.total), status: r.status, data: r.data })));
+          setPedidosState(pedidosRes.data.map(r => {
+            let itensLista = [];
+            try { itensLista = r.itens_lista ? JSON.parse(r.itens_lista) : []; } catch { itensLista = []; }
+            return {
+              id: r.id, cliente: r.cliente, telefone: r.telefone || "", endereco: r.endereco || "",
+              canal: r.canal, itens: r.itens, itensLista, total: Number(r.total), status: r.status, data: r.data,
+            };
+          }));
         if (estoqueRes.data?.length)
           setProdutos(estoqueRes.data.map(r => ({
             id: r.id, nome: r.nome, categoria: r.categoria, estoque: Number(r.estoque),
@@ -1827,7 +2118,10 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
         if (precifRows.length) await supabaseGestao.from("precificacao").insert(precifRows);
         if (pedidosState.length)
           await supabaseGestao.from("pedidos").insert(
-            pedidosState.map(p => ({ id: p.id, tenant_id: tenantId, cliente: p.cliente, canal: p.canal, itens: p.itens, total: p.total, status: p.status, data: p.data }))
+            pedidosState.map(p => ({
+              id: p.id, tenant_id: tenantId, cliente: p.cliente, telefone: p.telefone || null, endereco: p.endereco || null,
+              canal: p.canal, itens: p.itens, itens_lista: JSON.stringify(p.itensLista || []), total: p.total, status: p.status, data: p.data,
+            }))
           );
         if (produtos.length)
           await supabaseGestao.from("produtos_estoque").insert(
@@ -2038,7 +2332,7 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
             />
           )}
           {tab === "precos" && <PrecosTab tenantId={tenantId} categorias={categorias} />}
-          {tab === "vendas" && <Vendas pedidosState={pedidosState} setPedidosState={setPedidosState} canais={canais} />}
+          {tab === "vendas" && <Vendas pedidosState={pedidosState} setPedidosState={setPedidosState} canais={canais} produtos={produtos} />}
           {tab === "clientes" && <Clientes pedidosState={pedidosState} canais={canais} />}
           {tab === "custos" && <Custos produtos={produtos} />}
           {tab === "nf" && <NotasFiscais pedidosState={pedidosState} setPedidosState={setPedidosState} canais={canais} />}
