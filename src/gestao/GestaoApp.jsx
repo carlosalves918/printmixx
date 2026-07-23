@@ -71,6 +71,17 @@ function findCanal(canais, id) {
   );
 }
 
+// Faz o parse do campo "data" do pedido (ex: "23/07/2026 18:33" ou "20/07 09:14",
+// esse último sem ano, formato dos pedidos de exemplo) pra um objeto Date de verdade.
+function parseDataPedido(str) {
+  if (!str) return null;
+  const [dataParte] = String(str).split(" ");
+  const partes = dataParte.split("/").map(Number);
+  if (partes.length < 2 || partes.some(Number.isNaN)) return null;
+  const [dia, mes, ano] = partes;
+  return new Date(ano || new Date().getFullYear(), (mes || 1) - 1, dia || 1);
+}
+
 // ---------- Mock data ----------
 const DEFAULT_CATEGORIAS = [
   { id: "Gráfica", label: "Serviços Gráficos", icon: "Printer", color: "#9333EA" },
@@ -100,7 +111,6 @@ const DEFAULT_CANAIS = [
   { id: "TikTok Shop", label: "TikTok Shop", color: C.cyan },
   { id: "Loja própria", label: "Loja própria", color: C.purple },
 ];
-const CANAL_BAR_COLORS = [C.orange, C.cyan, C.purple];
 
 const PEDIDOS = [
   { id: "#10482", cliente: "Marina Ferreira", canal: "Shopee", itens: "Kit Festa Completo x1", total: 69.9, status: "aguardando_nf", data: "20/07 09:14" },
@@ -109,18 +119,6 @@ const PEDIDOS = [
   { id: "#10479", cliente: "ana.papelaria_rj", canal: "TikTok Shop", itens: "Lembrancinha x20", total: 98.0, status: "erro", data: "19/07 17:03" },
   { id: "#10478", cliente: "Rafael Souza", canal: "Shopee", itens: "Copo Personalizado x10", total: 129.0, status: "aguardando_nf", data: "19/07 15:41" },
   { id: "#10477", cliente: "Beatriz Lima", canal: "Shopee", itens: "Convite Digital x30", total: 90.0, status: "emitida", data: "19/07 11:09" },
-];
-
-const VENDAS_7D = [
-  { dia: "14/07", total: 640 }, { dia: "15/07", total: 812 }, { dia: "16/07", total: 590 },
-  { dia: "17/07", total: 940 }, { dia: "18/07", total: 1120 }, { dia: "19/07", total: 780 },
-  { dia: "20/07", total: 430 },
-];
-
-const CANAL_SPLIT = [
-  { canal: "Shopee", valor: 3120 },
-  { canal: "TikTok Shop", valor: 1890 },
-  { canal: "Loja própria", valor: 980 },
 ];
 
 // Referência de mercado (Brasil, jul/2026) — ajuste pelos preços do seu fornecedor
@@ -407,9 +405,56 @@ function Kpi({ label, value, delta, positive, gradient }) {
   );
 }
 
-function Dashboard({ pedidosState, produtos, onOpenPrecos }) {
+function Dashboard({ pedidosState, produtos, canais, onOpenPrecos }) {
   const estoqueBaixo = produtos.filter(p => p.estoque < p.minimo);
   const nfPendentes = pedidosState.filter(p => p.status !== "emitida").length;
+
+  const hoje = new Date();
+  const isMesmoDia = (d1, d2) => d1 && d2 && d1.toDateString() === d2.toDateString();
+
+  const pedidosComData = useMemo(
+    () => pedidosState.map(p => ({ ...p, _data: parseDataPedido(p.data) })),
+    [pedidosState]
+  );
+
+  const vendasHoje = useMemo(
+    () => pedidosComData.filter(p => isMesmoDia(p._data, hoje)).reduce((s, p) => s + (Number(p.total) || 0), 0),
+    [pedidosComData]
+  );
+  const ontem = new Date(hoje); ontem.setDate(hoje.getDate() - 1);
+  const vendasOntem = useMemo(
+    () => pedidosComData.filter(p => isMesmoDia(p._data, ontem)).reduce((s, p) => s + (Number(p.total) || 0), 0),
+    [pedidosComData]
+  );
+  const deltaHoje = vendasOntem > 0 ? ((vendasHoje - vendasOntem) / vendasOntem) * 100 : null;
+
+  const ticketMedio = pedidosState.length
+    ? pedidosState.reduce((s, p) => s + (Number(p.total) || 0), 0) / pedidosState.length
+    : 0;
+
+  // Últimos 7 dias (hoje incluso), agregando o total de pedidos por dia.
+  const vendas7dias = useMemo(() => {
+    const dias = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(hoje); d.setDate(hoje.getDate() - i);
+      const totalDia = pedidosComData
+        .filter(p => isMesmoDia(p._data, d))
+        .reduce((s, p) => s + (Number(p.total) || 0), 0);
+      dias.push({ dia: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }), total: totalDia });
+    }
+    return dias;
+  }, [pedidosComData]);
+  const total7dias = vendas7dias.reduce((s, d) => s + d.total, 0);
+
+  // Total vendido por canal, usando os canais cadastrados de verdade.
+  const porCanal = useMemo(
+    () => canais.map(c => ({
+      canal: c.label,
+      valor: pedidosState.filter(p => p.canal === c.id).reduce((s, p) => s + (Number(p.total) || 0), 0),
+      color: c.color,
+    })),
+    [pedidosState, canais]
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -437,8 +482,19 @@ function Dashboard({ pedidosState, produtos, onOpenPrecos }) {
       </button>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Kpi label="Vendas hoje" value="R$ 430,00" delta="+12% vs ontem" positive gradient />
-        <Kpi label="Ticket médio" value="R$ 61,20" delta="+3,4%" positive />
+        <Kpi
+          label="Vendas hoje"
+          value={`R$ ${vendasHoje.toFixed(2).replace(".", ",")}`}
+          delta={deltaHoje === null ? "sem dado de ontem" : `${deltaHoje >= 0 ? "+" : ""}${deltaHoje.toFixed(1)}% vs ontem`}
+          positive={deltaHoje === null || deltaHoje >= 0}
+          gradient
+        />
+        <Kpi
+          label="Ticket médio"
+          value={`R$ ${ticketMedio.toFixed(2).replace(".", ",")}`}
+          delta={`${pedidosState.length} pedido(s) no total`}
+          positive
+        />
         <Kpi label="Estoque baixo" value={`${estoqueBaixo.length} itens`} delta="revisar reposição" positive={false} />
         <Kpi label="NF pendentes" value={`${nfPendentes} pedidos`} delta="emitir hoje" positive={false} />
       </div>
@@ -447,10 +503,10 @@ function Dashboard({ pedidosState, produtos, onOpenPrecos }) {
         <GlowCard className="p-5 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: C.text, fontFamily: "'Poppins', sans-serif" }}>Vendas — últimos 7 dias</h3>
-            <span className="text-[11px] font-mono" style={{ color: C.textMuted }}>total R$ 5.312</span>
+            <span className="text-[11px] font-mono" style={{ color: C.textMuted }}>total R$ {total7dias.toFixed(2).replace(".", ",")}</span>
           </div>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={VENDAS_7D} margin={{ left: -20, right: 10 }}>
+            <AreaChart data={vendas7dias} margin={{ left: -20, right: 10 }}>
               <defs>
                 <linearGradient id="fillArea" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={C.pink} stopOpacity={0.55} />
@@ -467,7 +523,7 @@ function Dashboard({ pedidosState, produtos, onOpenPrecos }) {
               <Tooltip
                 contentStyle={{ fontSize: 12, borderRadius: 8, border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
                 labelStyle={{ color: C.text }}
-                formatter={(v) => [`R$ ${v}`, "vendas"]}
+                formatter={(v) => [`R$ ${v.toFixed(2)}`, "vendas"]}
               />
               <Area type="monotone" dataKey="total" stroke="url(#strokeArea)" strokeWidth={2.5} fill="url(#fillArea)" />
             </AreaChart>
@@ -476,21 +532,25 @@ function Dashboard({ pedidosState, produtos, onOpenPrecos }) {
 
         <GlowCard className="p-5">
           <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: C.text }}>Por canal</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={CANAL_SPLIT} layout="vertical" margin={{ left: 0, right: 20 }}>
-              <XAxis type="number" hide />
-              <YAxis dataKey="canal" type="category" tick={{ fontSize: 11, fill: C.textMuted }} axisLine={false} tickLine={false} width={90} />
-              <Tooltip
-                contentStyle={{ fontSize: 12, borderRadius: 8, border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
-                formatter={(v) => [`R$ ${v}`, "receita"]}
-              />
-              <Bar dataKey="valor" radius={[0, 4, 4, 0]}>
-                {CANAL_SPLIT.map((entry, i) => (
-                  <Cell key={i} fill={CANAL_BAR_COLORS[i]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          {porCanal.length === 0 ? (
+            <p className="text-xs" style={{ color: C.textMuted }}>Cadastre canais de venda em "Cadastros" pra ver esse gráfico.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={porCanal} layout="vertical" margin={{ left: 0, right: 20 }}>
+                <XAxis type="number" hide />
+                <YAxis dataKey="canal" type="category" tick={{ fontSize: 11, fill: C.textMuted }} axisLine={false} tickLine={false} width={90} />
+                <Tooltip
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text }}
+                  formatter={(v) => [`R$ ${v.toFixed(2)}`, "receita"]}
+                />
+                <Bar dataKey="valor" radius={[0, 4, 4, 0]}>
+                  {porCanal.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </GlowCard>
       </div>
 
@@ -2305,7 +2365,7 @@ export default function GestaoApp({ tenantId, tenantNome, currentUserId, onLogou
           </div>
         </header>
         <div className="p-8 relative z-10">
-          {tab === "dashboard" && <Dashboard pedidosState={pedidosState} produtos={produtos} onOpenPrecos={() => setTab("precos")} />}
+          {tab === "dashboard" && <Dashboard pedidosState={pedidosState} produtos={produtos} canais={canais} onOpenPrecos={() => setTab("precos")} />}
           {tab === "cadastros" && (
             <CadastrosTab
               categorias={categorias}
