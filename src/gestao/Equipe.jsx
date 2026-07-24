@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react'
 import logo from '../assets/logo.png'
 import GestaoApp from './GestaoApp'
 import { supabaseGestao, gestaoSupabaseConfigured } from './supabaseGestaoClient'
+import { siteConfig } from '../siteConfig'
+
+// Chave usada no localStorage pra lembrar que a pessoa já digitou a senha
+// local certa neste navegador (fica válido até ela clicar em "Sair").
+const LOCAL_AUTH_KEY = 'pm_local_auth_ok'
 
 // Ponto de entrada da área da equipe (ícone de cadeado no header).
 // Agora é um login de verdade (Supabase Auth: e-mail + senha), não mais um
@@ -25,6 +30,30 @@ export default function Equipe() {
   const [novoTenantNome, setNovoTenantNome] = useState('')
   const [onboardLoading, setOnboardLoading] = useState(false)
   const [onboardError, setOnboardError] = useState('')
+
+  // Estado do login simples de "modo local" (sem Supabase configurado).
+  const [localAuthed, setLocalAuthed] = useState(
+    () => typeof window !== 'undefined' && window.localStorage.getItem(LOCAL_AUTH_KEY) === 'true'
+  )
+  const [localSenha, setLocalSenha] = useState('')
+  const [localError, setLocalError] = useState('')
+
+  function handleLocalLogin(e) {
+    e.preventDefault()
+    if (localSenha === siteConfig.painelLocalSenha) {
+      window.localStorage.setItem(LOCAL_AUTH_KEY, 'true')
+      setLocalAuthed(true)
+      setLocalError('')
+    } else {
+      setLocalError('Senha incorreta.')
+    }
+  }
+
+  function localLogout() {
+    window.localStorage.removeItem(LOCAL_AUTH_KEY)
+    setLocalAuthed(false)
+    setLocalSenha('')
+  }
 
   useEffect(() => {
     document.title = 'Painel interno — Print Mixx'
@@ -136,17 +165,40 @@ export default function Equipe() {
   if (checking) return null
 
   if (!gestaoSupabaseConfigured) {
-    // Sem Supabase configurado: entra direto no painel em modo local — sem
-    // login, sem gráfica (tenant) — os dados ficam salvos só neste
-    // navegador/computador (localStorage). Dá pra migrar tudo pro Supabase
-    // depois, exportando um backup em JSON e importando quando o banco
-    // estiver disponível de novo.
+    // Sem Supabase configurado: modo local — sem gráfica (tenant), os dados
+    // ficam salvos só neste navegador/computador (localStorage). Ainda assim,
+    // exige uma senha simples e compartilhada antes de entrar, pra quem tiver
+    // só o link não conseguir abrir o painel direto.
+    if (!localAuthed) {
+      return (
+        <div className="tp-gate">
+          <img src={logo} alt="Print Mixx" className="tp-gate-logo" />
+          <h1>Painel interno</h1>
+          <p>Digite a senha do painel pra entrar.</p>
+          <form className="tp-gate-form-stack" onSubmit={handleLocalLogin}>
+            <input
+              type="password"
+              placeholder="Senha"
+              value={localSenha}
+              onChange={(e) => setLocalSenha(e.target.value)}
+              autoFocus
+              required
+            />
+            <button className="btn btn-primary" type="submit" disabled={!localSenha}>
+              Entrar
+            </button>
+          </form>
+          {localError && <p className="tp-gate-error">{localError}</p>}
+          <a href="/" className="tp-gate-back">← Voltar para o site</a>
+        </div>
+      )
+    }
     return (
       <GestaoApp
         tenantId={null}
         tenantNome="Uso local"
         currentUserId={null}
-        onLogout={() => { window.location.href = '/' }}
+        onLogout={localLogout}
       />
     )
   }

@@ -7,6 +7,11 @@ export const siteConfig = {
   // Nome exibido no cartão do painel interno (/equipe), no modo local.
   painelAdminNome: 'Carlos Eduardo',
   painelAdminCargo: 'Administrador',
+  // Senha única e simples pro painel interno quando o Supabase não está
+  // configurado ("modo local"). Não é uma senha por pessoa — é só uma
+  // trava básica pra quem tem o link não entrar sem saber a senha. Troque
+  // aqui à vontade.
+  painelLocalSenha: 'printmixx2026',
   address: {
     street: 'Rua João Pessoa, 186, 1º andar',
     neighborhood: 'Centro',
